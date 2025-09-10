@@ -61,16 +61,16 @@ export function ChatInterface() {
   return (
     <div className="flex flex-col h-full">
       {/* Chat Messages */}
-      <ScrollArea className="flex-1 p-4">
-        <div className="space-y-4">
+      <ScrollArea className="flex-1 p-3 md:p-4">
+        <div className="space-y-3 md:space-y-4">
           {messages.map((message) => (
             <div key={message.id} className={`flex ${message.sender === "user" ? "justify-end" : "justify-start"}`}>
               <div
-                className={`max-w-[80%] p-4 brutalist-border font-mono text-sm ${
+                className={`max-w-[85%] md:max-w-[80%] p-3 md:p-4 brutalist-border font-mono text-xs md:text-sm ${
                   message.sender === "user"
-                    ? "bg-primary text-primary-foreground ml-4"
-                    : "bg-card text-card-foreground mr-4"
-                } brutalist-shadow`}
+                    ? "bg-primary text-primary-foreground ml-2 md:ml-4"
+                    : "bg-card text-card-foreground mr-2 md:mr-4"
+                } shadow-[4px_4px_0px_var(--border)] md:shadow-[8px_8px_0px_var(--border)]`}
               >
                 {/* Message content */}
                 <div className="mb-2">{message.content}</div>
@@ -96,15 +96,15 @@ export function ChatInterface() {
       </ScrollArea>
 
       {/* Input Area */}
-      <div className="p-4 brutalist-border border-t-4">
+      <div className="p-3 md:p-4 brutalist-border border-t-4">
         <div className="flex gap-2">
           <div className="flex-1 relative">
             <Input
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               onKeyPress={handleKeyPress}
-              placeholder="Type your swap instruction... (e.g., 'swap 0.5 ETH for USDC')"
-              className="brutalist-border bg-input text-foreground font-mono pr-12"
+              placeholder="Type swap instruction..."
+              className="brutalist-border bg-input text-foreground font-mono pr-12 text-sm"
             />
             <div className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground font-black">
               ENTER
@@ -113,16 +113,18 @@ export function ChatInterface() {
           <Button
             onClick={handleSendMessage}
             disabled={!inputValue.trim()}
-            className="brutalist-border brutalist-shadow bg-primary text-primary-foreground hover:bg-primary/90 font-black px-6"
+            className="brutalist-border bg-primary text-primary-foreground hover:bg-primary/90 font-black px-4 md:px-6 shadow-[4px_4px_0px_var(--border)] md:shadow-[8px_8px_0px_var(--border)]"
           >
-            SEND
+            <span className="hidden sm:inline">SEND</span>
+            <span className="sm:hidden">→</span>
           </Button>
         </div>
 
         {/* Terminal-style prompt indicator */}
         <div className="flex items-center gap-2 mt-2 text-xs text-muted-foreground font-mono">
           <div className="text-primary font-black">$</div>
-          <div>Ready for swap instructions...</div>
+          <div className="hidden sm:inline">Ready for swap instructions...</div>
+          <div className="sm:hidden">Ready...</div>
           <div className="w-2 h-3 bg-primary animate-pulse"></div>
         </div>
       </div>

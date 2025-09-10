@@ -2,6 +2,8 @@
 
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { X } from "lucide-react"
 
 interface ActiveSwap {
   id: string
@@ -35,7 +37,11 @@ const mockSwaps: ActiveSwap[] = [
   },
 ]
 
-export function ActiveSwapsSidebar() {
+interface ActiveSwapsSidebarProps {
+  onClose?: () => void
+}
+
+export function ActiveSwapsSidebar({ onClose }: ActiveSwapsSidebarProps) {
   const getStatusColor = (status: ActiveSwap["status"]) => {
     switch (status) {
       case "completed":
@@ -50,21 +56,33 @@ export function ActiveSwapsSidebar() {
   }
 
   return (
-    <div className="w-80 brutalist-border border-r-4 bg-sidebar text-sidebar-foreground flex flex-col h-full">
+    <div className="w-80 md:w-80 sm:w-72 brutalist-border border-r-4 bg-sidebar text-sidebar-foreground flex flex-col h-full">
       {/* Header */}
-      <div className="p-4 brutalist-border border-b-4">
-        <h2 className="font-black text-lg tracking-tight">ACTIVE SWAPS</h2>
-        <p className="text-xs text-sidebar-foreground/70 font-mono mt-1">SpendPermission transactions</p>
+      <div className="p-3 md:p-4 brutalist-border border-b-4 flex items-center justify-between">
+        <div>
+          <h2 className="font-black text-base md:text-lg tracking-tight">ACTIVE SWAPS</h2>
+          <p className="text-xs text-sidebar-foreground/70 font-mono mt-1">SpendPermission transactions</p>
+        </div>
+
+        {/* Mobile close button */}
+        {onClose && (
+          <Button variant="ghost" size="sm" className="md:hidden p-1" onClick={onClose}>
+            <X className="h-4 w-4" />
+          </Button>
+        )}
       </div>
 
       {/* Swaps List */}
       <ScrollArea className="flex-1">
-        <div className="p-4 space-y-3">
+        <div className="p-3 md:p-4 space-y-3">
           {mockSwaps.map((swap) => (
-            <div key={swap.id} className="brutalist-border brutalist-shadow bg-sidebar-accent p-3 space-y-2">
+            <div
+              key={swap.id}
+              className="brutalist-border bg-sidebar-accent p-2 md:p-3 space-y-2 shadow-[4px_4px_0px_var(--border)] md:shadow-[8px_8px_0px_var(--border)]"
+            >
               {/* Token Pair */}
               <div className="flex items-center justify-between">
-                <div className="font-black text-sm">{swap.tokenPair}</div>
+                <div className="font-black text-xs md:text-sm">{swap.tokenPair}</div>
                 <Badge className={`${getStatusColor(swap.status)} font-black text-xs brutalist-border`}>
                   {swap.status.toUpperCase()}
                 </Badge>
@@ -97,7 +115,7 @@ export function ActiveSwapsSidebar() {
       </ScrollArea>
 
       {/* Footer */}
-      <div className="p-4 brutalist-border border-t-4">
+      <div className="p-3 md:p-4 brutalist-border border-t-4">
         <div className="text-xs font-mono text-sidebar-foreground/60 text-center">Powered by Base SpendPermissions</div>
       </div>
     </div>
