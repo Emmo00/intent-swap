@@ -11,6 +11,9 @@ importers:
       '@google/genai':
         specifier: ^1.19.0
         version: 1.19.0
+      '@google/generative-ai':
+        specifier: ^0.24.1
+        version: 0.24.1
       '@hookform/resolvers':
         specifier: ^3.10.0
         version: 3.10.0(react-hook-form@7.60.0(react@18.0.0))
@@ -149,6 +152,9 @@ importers:
       react-resizable-panels:
         specifier: ^2.1.7
         version: 2.1.7(react-dom@18.0.0(react@18.0.0))(react@18.0.0)
+      readline:
+        specifier: ^1.3.0
+        version: 1.3.0
       recharts:
         specifier: 2.15.4
         version: 2.15.4(react-dom@18.0.0(react@18.0.0))(react@18.0.0)
@@ -233,6 +239,10 @@ packages:
     peerDependenciesMeta:
       '@modelcontextprotocol/sdk':
         optional: true
+
+  '@google/generative-ai@0.24.1':
+    resolution: {integrity: sha512-MqO+MLfM6kjxcKoy0p1wRzG3b4ZZXtPI+z2IE26UogS2Cm/XHO+7gGRBh6gcJsOiIVoH93UwKvW4HdgiOZCy9Q==}
+    engines: {node: '>=18.0.0'}
 
   '@hookform/resolvers@3.10.0':
     resolution: {integrity: sha512-79Dv+3mDF7i+2ajj7SkypSKHhl1cbln1OGavqrsF7p6mbUv11xpqpacPsGDCTRvCSjEEIez2ef1NveSVL3b0Ag==}
@@ -1593,6 +1603,9 @@ packages:
     resolution: {integrity: sha512-x+VL6wbT4JRVPm7EGxXhZ8w8LTROaxPXOqhlGyVSrv0sB1jkyFGgXxJ8LVoPRLvPR6/CIZGFmfzqUa2NYeMr2A==}
     engines: {node: '>=0.10.0'}
 
+  readline@1.3.0:
+    resolution: {integrity: sha512-k2d6ACCkiNYz222Fs/iNze30rRJ1iIicW7JuX/7/cozvih6YCkFZH+J6mAFDVgv0dRBaAyr4jDqC95R2y4IADg==}
+
   recharts-scale@0.4.5:
     resolution: {integrity: sha512-kivNFO+0OcUNu7jQquLXAxz1FIwZj8nrj+YkOKc5694NbjCvcT6aSZiIzNzd2Kul4o4rTto8QVR9lMNtxD4G1w==}
 
@@ -1786,6 +1799,8 @@ snapshots:
       - encoding
       - supports-color
       - utf-8-validate
+
+  '@google/generative-ai@0.24.1': {}
 
   '@hookform/resolvers@3.10.0(react-hook-form@7.60.0(react@18.0.0))':
     dependencies:
@@ -3100,6 +3115,8 @@ snapshots:
   react@18.0.0:
     dependencies:
       loose-envify: 1.4.0
+
+  readline@1.3.0: {}
 
   recharts-scale@0.4.5:
     dependencies:
