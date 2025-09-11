@@ -2,7 +2,7 @@
 
 import React from "react"
 
-import { useState, useCallback, useEffect } from "react"
+import { useState, useCallback, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -39,6 +39,7 @@ function TypingIndicator() {
 
 export function ChatInterface({ sessionId: propSessionId, onSessionChange }: ChatInterfaceProps = {}) {
   const { isConnected, address } = useAuth()
+  const scrollAreaRef = useRef<HTMLDivElement>(null)
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "1",
@@ -54,6 +55,22 @@ export function ChatInterface({ sessionId: propSessionId, onSessionChange }: Cha
     propSessionId || `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
   )
   const [isLoadingHistory, setIsLoadingHistory] = useState(false)
+
+  // Auto-scroll to bottom function
+  const scrollToBottom = useCallback(() => {
+    if (scrollAreaRef.current) {
+      const scrollContainer = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]')
+      if (scrollContainer) {
+        scrollContainer.scrollTop = scrollContainer.scrollHeight
+      }
+    }
+  }, [])
+
+  // Auto-scroll when messages change
+  useEffect(() => {
+    const timeoutId = setTimeout(scrollToBottom, 100) // Small delay to ensure DOM is updated
+    return () => clearTimeout(timeoutId)
+  }, [messages, scrollToBottom])
 
   // Update session when prop changes
   useEffect(() => {
@@ -126,52 +143,119 @@ export function ChatInterface({ sessionId: propSessionId, onSessionChange }: Cha
     onSessionChange?.(newSessionId)
   }
 
-  // Mock function call handler
+  // Real function call handler with API integration
   const handleFunctionCalls = useCallback(async (functionCalls: any[]) => {
     console.log('🔧 Handling function calls:', functionCalls)
     
     const results = []
     for (const call of functionCalls) {
-      switch (call.name) {
-        case 'get_price':
-          console.log(`� Mock price check: ${call.args.sell_token} → ${call.args.buy_token}`)
-          const mockPrice = (Math.random() * 0.1 + 0.9).toFixed(6) // Random price around 1
-          const mockOutput = (parseFloat(call.args.sell_amount) * parseFloat(mockPrice)).toFixed(6)
-          results.push({
-            name: call.name,
-            result: `Price quote: ${call.args.sell_amount} ${call.args.sell_token} → ${mockOutput} ${call.args.buy_token} (Rate: ${mockPrice})`,
-            success: true
-          })
-          break
-        case 'get_quote':
-          console.log(`� Mock quote: ${call.args.sell_token} → ${call.args.buy_token}`)
-          results.push({
-            name: call.name,
-            result: `Quote prepared for ${call.args.sell_amount} ${call.args.sell_token} → ${call.args.buy_token}. Ready to execute!`,
-            success: true
-          })
-          break
-        case 'check_balance':
-          console.log(`💳 Mock balance check for: ${call.args.token}`)
-          const mockBalance = (Math.random() * 1000).toFixed(4)
-          results.push({
-            name: call.name,
-            result: `Balance for ${call.args.token}: ${mockBalance}`,
-            success: true
-          })
-          break
-        default:
-          console.log(`❓ Unknown function call: ${call.name}`)
-          results.push({
-            name: call.name,
-            result: `Unknown function: ${call.name}`,
-            success: false
-          })
+      try {
+        let result = 'Unknown function'
+        
+        switch (call.name) {
+          case 'check_balance':
+            try {
+              // Parse arguments - could be string or object
+              const args = typeof call.arguments === 'string' ? JSON.parse(call.arguments) : call.arguments
+              const { token_symbol } = args
+              
+              console.log(`💳 Real balance check for: ${token_symbol}`)
+              const balanceResponse = await fetch('/api/balance', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ token: token_symbol }),
+              })
+              
+              if (balanceResponse.ok) {
+                const balanceData = await balanceResponse.json()
+                result = `${balanceData.balance} ${balanceData.symbol}`
+              } else {
+                result = `Error checking balance: ${balanceResponse.statusText}`
+              }
+            } catch (error) {
+              console.error('Balance check error:', error)
+              result = `Error checking balance: ${error instanceof Error ? error.message : 'Unknown error'}`
+            }
+            break
+            
+          case 'get_price':
+            try {
+              const args = typeof call.arguments === 'string' ? JSON.parse(call.arguments) : call.arguments
+              const { sell_token, buy_token, amount } = args
+              
+              console.log(`📊 Real price check: ${sell_token} → ${buy_token}`)
+              const priceResponse = await fetch('/api/swap/price', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                  sellToken: sell_token,
+                  buyToken: buy_token,
+                  sellAmount: amount 
+                }),
+              })
+              
+              if (priceResponse.ok) {
+                const priceData = await priceResponse.json()
+                result = `${priceData.buyAmount} ${buy_token} (Price: ${priceData.price})`
+              } else {
+                result = `Error getting price: ${priceResponse.statusText}`
+              }
+            } catch (error) {
+              console.error('Price check error:', error)
+              result = `Error getting price: ${error instanceof Error ? error.message : 'Unknown error'}`
+            }
+            break
+            
+          case 'get_quote':
+            try {
+              const args = typeof call.arguments === 'string' ? JSON.parse(call.arguments) : call.arguments
+              const { sell_token, buy_token, amount } = args
+              
+              console.log(`� Real quote: ${sell_token} → ${buy_token}`)
+              const quoteResponse = await fetch('/api/swap/quote', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                  sellToken: sell_token,
+                  buyToken: buy_token,
+                  sellAmount: amount 
+                }),
+              })
+              
+              if (quoteResponse.ok) {
+                const quoteData = await quoteResponse.json()
+                result = `Quote: ${quoteData.buyAmount} ${buy_token} (Gas: ${quoteData.estimatedGas || 'N/A'})`
+              } else {
+                result = `Error getting quote: ${quoteResponse.statusText}`
+              }
+            } catch (error) {
+              console.error('Quote error:', error)
+              result = `Error getting quote: ${error instanceof Error ? error.message : 'Unknown error'}`
+            }
+            break
+            
+          default:
+            console.log(`❓ Unknown function call: ${call.name}`)
+            result = `Unknown function: ${call.name}`
+        }
+        
+        results.push({ 
+          name: call.name, 
+          result, 
+          success: !result.includes('Error') 
+        })
+      } catch (error) {
+        console.error(`Error executing function ${call.name}:`, error)
+        results.push({ 
+          name: call.name, 
+          result: `Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          success: false
+        })
       }
     }
     
-    // Simulate processing time
-    await new Promise(resolve => setTimeout(resolve, 1500))
+    // Small delay for UX
+    await new Promise(resolve => setTimeout(resolve, 800))
     return results
   }, [])
 
@@ -219,44 +303,56 @@ export function ChatInterface({ sessionId: propSessionId, onSessionChange }: Cha
     setInputValue("")
     setIsLoading(true)
 
+    // Immediate scroll after adding user message
+    setTimeout(scrollToBottom, 50)
+
     try {
       // Call the chat API
       const apiResponse = await callChatAPI(currentInput, 'user')
       
       if (apiResponse.success && apiResponse.aiResponse) {
-        const aiMessage: Message = {
-          id: (Date.now() + 1).toString(),
-          content: apiResponse.aiResponse.content,
-          sender: "ai",
-          timestamp: new Date(),
-          functionCalls: apiResponse.functionCalls || [],
-          isProcessing: (apiResponse.functionCalls && apiResponse.functionCalls.length > 0)
-        }
+        // Check if the response has meaningful content or just function calls
+        const hasContent = apiResponse.aiResponse.content && 
+                          apiResponse.aiResponse.content.trim() && 
+                          apiResponse.aiResponse.content !== '[object Object]' &&
+                          !apiResponse.aiResponse.content.includes('[object Object]')
         
-        // Replace typing indicator with actual response
-        setMessages((prev) => prev.map(msg => 
-          msg.id.startsWith('typing_') ? aiMessage : msg
-        ))
-        
-        // Handle function calls if present
-        if (apiResponse.functionCalls && apiResponse.functionCalls.length > 0) {
+        const hasFunctionCalls = apiResponse.functionCalls && apiResponse.functionCalls.length > 0
+
+        if (hasFunctionCalls && !hasContent) {
+          // Pure function call response - show function processing message
+          const functionMessage: Message = {
+            id: (Date.now() + 1).toString(),
+            content: "", // No content, just function calls
+            sender: "ai",
+            timestamp: new Date(),
+            functionCalls: apiResponse.functionCalls,
+            isProcessing: true
+          }
+          
+          // Replace typing indicator with function processing message
+          setMessages((prev) => prev.map(msg => 
+            msg.id.startsWith('typing_') ? functionMessage : msg
+          ))
+
+          // Execute function calls
           const functionResults = await handleFunctionCalls(apiResponse.functionCalls)
           
-          // Update message with function results
+          // Update message to show completion
           setMessages((prev) => prev.map(msg => 
-            msg.id === aiMessage.id 
+            msg.id === functionMessage.id 
               ? { ...msg, isProcessing: false, functionResults } 
               : msg
           ))
           
-          // Send function results back to agent if needed
-          const resultsMessage = `Function call results: ${functionResults.map(r => 
+          // Send function results back to agent as system message
+          const resultsMessage = functionResults.map(r => 
             `${r.name}: ${r.result}`
-          ).join(', ')}`
+          ).join('\n')
           
           const followupResponse = await callChatAPI(resultsMessage, 'system')
           
-          if (followupResponse.success && followupResponse.aiResponse) {
+          if (followupResponse.success && followupResponse.aiResponse && followupResponse.aiResponse.content) {
             const followupMessage: Message = {
               id: (Date.now() + 2).toString(),
               content: followupResponse.aiResponse.content,
@@ -264,6 +360,50 @@ export function ChatInterface({ sessionId: propSessionId, onSessionChange }: Cha
               timestamp: new Date(),
             }
             setMessages((prev) => [...prev, followupMessage])
+          }
+        } else {
+          // Regular message with content (and possibly function calls)
+          const aiMessage: Message = {
+            id: (Date.now() + 1).toString(),
+            content: hasContent ? apiResponse.aiResponse.content : "I'm processing your request...",
+            sender: "ai",
+            timestamp: new Date(),
+            functionCalls: apiResponse.functionCalls || [],
+            isProcessing: hasFunctionCalls
+          }
+          
+          // Replace typing indicator with actual response
+          setMessages((prev) => prev.map(msg => 
+            msg.id.startsWith('typing_') ? aiMessage : msg
+          ))
+          
+          // Handle function calls if present
+          if (hasFunctionCalls) {
+            const functionResults = await handleFunctionCalls(apiResponse.functionCalls)
+            
+            // Update message with function results
+            setMessages((prev) => prev.map(msg => 
+              msg.id === aiMessage.id 
+                ? { ...msg, isProcessing: false, functionResults } 
+                : msg
+            ))
+            
+            // Send function results back to agent as system message
+            const resultsMessage = functionResults.map(r => 
+              `${r.name}: ${r.result}`
+            ).join('\n')
+            
+            const followupResponse = await callChatAPI(resultsMessage, 'system')
+            
+            if (followupResponse.success && followupResponse.aiResponse && followupResponse.aiResponse.content) {
+              const followupMessage: Message = {
+                id: (Date.now() + 2).toString(),
+                content: followupResponse.aiResponse.content,
+                sender: "ai",
+                timestamp: new Date(),
+              }
+              setMessages((prev) => [...prev, followupMessage])
+            }
           }
         }
       }
@@ -311,7 +451,7 @@ export function ChatInterface({ sessionId: propSessionId, onSessionChange }: Cha
 
       {/* Chat Messages */}
       <div className="flex-1 min-h-0">
-        <ScrollArea className="h-full p-3 md:p-4">
+        <ScrollArea ref={scrollAreaRef} className="h-full p-3 md:p-4">
           <div className="space-y-3 md:space-y-4 pb-4">
             {messages.map((message) => (
               <div key={message.id} className={`flex ${message.sender === "user" ? "justify-end" : "justify-start"}`}>
@@ -323,15 +463,18 @@ export function ChatInterface({ sessionId: propSessionId, onSessionChange }: Cha
                   } shadow-[4px_4px_0px_var(--border)] md:shadow-[8px_8px_0px_var(--border)]`}
                 >
                   {/* Message content or typing indicator */}
-                  {message.content ? (
+                  {message.content && 
+                   message.content.trim() && 
+                   message.content !== '[object Object]' && 
+                   !message.content.includes('[object Object]') ? (
                     <div className="mb-2">{message.content}</div>
                   ) : message.isProcessing && message.sender === "ai" ? (
                     <div className="mb-2">
                       <TypingIndicator />
                     </div>
-                  ) : (
-                    <div className="mb-2">{message.content}</div>
-                  )}
+                  ) : message.sender === "user" ? (
+                    <div className="mb-2">{message.content || "..."}</div>
+                  ) : null}
 
                   {/* Function calls display */}
                   {message.functionCalls && message.functionCalls.length > 0 && (

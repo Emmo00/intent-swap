@@ -90,7 +90,7 @@ export async function POST(request: NextRequest) {
         } else if (aiResponse.text) {
           aiResponseText = aiResponse.text;
         } else {
-          aiResponseText = aiResponse.toString();
+          aiResponseText = JSON.stringify(aiResponse);
         }
         if (!aiResponseText) {
           throw new Error('No valid response text found in AI response');
