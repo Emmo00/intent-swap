@@ -3,10 +3,23 @@ import { chatDatabase } from '@/lib/database'
 import { generateChatResponse } from '@/lib/ai'
 import type { ChatMessage } from '@/types'
 
+// Configuration: Number of recent messages to send to AI (0 = send all)
+const MAX_CONTEXT_MESSAGES: number = 8
+
 interface ChatRequest {
   sessionId: string
   role: 'user' | 'model' | 'system'
   message: string
+}
+
+// Helper function to get recent messages for AI context
+function getRecentMessages(messages: ChatMessage[]): ChatMessage[] {
+  if (MAX_CONTEXT_MESSAGES === 0 || messages.length <= MAX_CONTEXT_MESSAGES) {
+    return messages
+  }
+  
+  // Get the most recent messages
+  return messages.slice(-MAX_CONTEXT_MESSAGES)
 }
 
 export async function POST(request: NextRequest) {
@@ -77,8 +90,12 @@ export async function POST(request: NextRequest) {
       try {
         // Get current conversation history
         const messages = await chatDatabase.getMessages(sessionId);
+        // Get recent messages for AI context
+        const recentMessages = getRecentMessages(messages);
+        console.log(`🧠 Using ${recentMessages.length} out of ${messages.length} messages for AI context`);
+        
         // Convert 'system' to 'model' for agent, but keep original for storage
-        const agentMessages: ChatMessage[] = messages.map((msg) =>
+        const agentMessages: ChatMessage[] = recentMessages.map((msg) =>
           msg.role === 'system' ? { ...msg, role: 'model' } : msg
         );
         // Add the new message as 'model' for agent
@@ -160,8 +177,12 @@ export async function POST(request: NextRequest) {
       if (role === 'user') {
         console.log(`🤖 Generating AI response for session ${sessionId}`);
         try {
+          // Get recent messages for AI context
+          const recentMessages = getRecentMessages(messages);
+          console.log(`🧠 Using ${recentMessages.length} out of ${messages.length} messages for AI context`);
+          
           // Convert all 'system' messages to 'model' before passing to agent
-          const agentMessages: ChatMessage[] = messages.map((msg) =>
+          const agentMessages: ChatMessage[] = recentMessages.map((msg) =>
             msg.role === 'system' ? { ...msg, role: 'model' } : msg
           );
           // Generate AI response using the chat history

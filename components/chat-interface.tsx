@@ -1,27 +1,27 @@
-"use client"
+"use client";
 
-import React from "react"
+import React from "react";
 
-import { useState, useCallback, useEffect, useRef } from "react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { Badge } from "@/components/ui/badge"
-import { useAuth } from "@/components/auth-context"
-import { searchTokenByNameOrSymbol } from "@/lib/token-search"
+import { useState, useCallback, useEffect, useRef } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Badge } from "@/components/ui/badge";
+import { useAuth } from "@/components/auth-context";
+import { searchTokenByNameOrSymbol } from "@/lib/token-search";
 
 interface Message {
-  id: string
-  content: string
-  sender: "user" | "ai"
-  timestamp: Date
-  functionCalls?: any[]
-  isProcessing?: boolean
+  id: string;
+  content: string;
+  sender: "user" | "ai";
+  timestamp: Date;
+  functionCalls?: any[];
+  isProcessing?: boolean;
 }
 
 interface ChatInterfaceProps {
-  sessionId?: string
-  onSessionChange?: (newSessionId: string) => void
+  sessionId?: string;
+  onSessionChange?: (newSessionId: string) => void;
 }
 
 // Typing indicator component
@@ -35,13 +35,17 @@ function TypingIndicator() {
         <div className="w-2 h-2 bg-current rounded-full animate-bounce"></div>
       </div>
     </div>
-  )
+  );
 }
 
-export function ChatInterface({ sessionId: propSessionId, onSessionChange }: ChatInterfaceProps = {}) {
-  const { isConnected, address } = useAuth()
-  const scrollAreaRef = useRef<HTMLDivElement>(null)
-  const inputRef = useRef<HTMLInputElement>(null)
+export function ChatInterface({
+  sessionId: propSessionId,
+  onSessionChange,
+}: ChatInterfaceProps = {}) {
+  const { isConnected, address } = useAuth();
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "1",
@@ -50,92 +54,86 @@ export function ChatInterface({ sessionId: propSessionId, onSessionChange }: Cha
       sender: "ai",
       timestamp: new Date(),
     },
-  ])
-  const [inputValue, setInputValue] = useState("")
-  const [isLoading, setIsLoading] = useState(false)
-  const [currentSessionId, setCurrentSessionId] = useState(() => 
-    propSessionId || `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-  )
-  const [isLoadingHistory, setIsLoadingHistory] = useState(false)
+  ]);
+  const [inputValue, setInputValue] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [currentSessionId, setCurrentSessionId] = useState(
+    () => propSessionId || `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+  );
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
 
   // Auto-scroll to bottom function
   const scrollToBottom = useCallback(() => {
-    if (scrollAreaRef.current) {
-      const scrollContainer = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]')
-      if (scrollContainer) {
-        scrollContainer.scrollTop = scrollContainer.scrollHeight
-      }
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
-  }, [])
+  }, []);
 
   // Auto-focus input function
   const focusInput = useCallback(() => {
     if (inputRef.current && !isLoading) {
-      inputRef.current.focus()
+      inputRef.current.focus();
     }
-  }, [isLoading])
+  }, [isLoading]);
 
   // Auto-scroll when messages change
   useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      scrollToBottom()
-      // Focus input after response (but not when loading history)
-      if (!isLoadingHistory) {
-        focusInput()
-      }
-    }, 150) // Slightly longer delay to ensure DOM is updated
-    return () => clearTimeout(timeoutId)
-  }, [messages, scrollToBottom, focusInput, isLoadingHistory])
+    scrollToBottom();
+    if (!isLoadingHistory) {
+      focusInput();
+    }
+  }, [messages, scrollToBottom, focusInput, isLoadingHistory]);
 
   // Initial focus when connected
   useEffect(() => {
     if (isConnected && !isLoading) {
-      focusInput()
+      focusInput();
     }
-  }, [isConnected, focusInput, isLoading])
+  }, [isConnected, focusInput, isLoading]);
 
   // Update session when prop changes
   useEffect(() => {
     if (propSessionId && propSessionId !== currentSessionId) {
-      setCurrentSessionId(propSessionId)
-      loadChatHistory(propSessionId)
+      setCurrentSessionId(propSessionId);
+      loadChatHistory(propSessionId);
     }
-  }, [propSessionId, currentSessionId])
+  }, [propSessionId, currentSessionId]);
 
   // Load chat history for a specific session
   const loadChatHistory = async (targetSessionId: string) => {
-    if (!isConnected) return
+    if (!isConnected) return;
 
-    setIsLoadingHistory(true)
+    setIsLoadingHistory(true);
     try {
       const response = await fetch(`/api/agent/chat?sessionId=${targetSessionId}`, {
-        method: 'GET',
-        credentials: 'include',
-      })
+        method: "GET",
+        credentials: "include",
+      });
 
       if (response.ok) {
-        const data = await response.json()
+        const data = await response.json();
         if (data.success && data.messages) {
           // Convert database messages to UI messages
           const loadedMessages: Message[] = data.messages.map((msg: any, index: number) => ({
             id: `loaded_${index}`,
             content: msg.content,
-            sender: msg.role === 'user' ? 'user' : 'ai',
+            sender: msg.role === "user" ? "user" : "ai",
             timestamp: new Date(data.createdAt),
-          }))
-          
+          }));
+
           // If no messages in history, show welcome message
           if (loadedMessages.length === 0) {
             setMessages([
               {
                 id: "1",
-                content: "Welcome to IntentSwap! I'm your AI trading assistant. Tell me what you'd like to swap and I'll handle it for you.",
+                content:
+                  "Welcome to IntentSwap! I'm your AI trading assistant. Tell me what you'd like to swap and I'll handle it for you.",
                 sender: "ai",
                 timestamp: new Date(),
               },
-            ])
+            ]);
           } else {
-            setMessages(loadedMessages)
+            setMessages(loadedMessages);
           }
         }
       } else if (response.status === 404) {
@@ -143,193 +141,205 @@ export function ChatInterface({ sessionId: propSessionId, onSessionChange }: Cha
         setMessages([
           {
             id: "1",
-            content: "Welcome to IntentSwap! I'm your AI trading assistant. Tell me what you'd like to swap and I'll handle it for you.",
+            content:
+              "Welcome to IntentSwap! I'm your AI trading assistant. Tell me what you'd like to swap and I'll handle it for you.",
             sender: "ai",
             timestamp: new Date(),
           },
-        ])
+        ]);
       } else {
-        console.error('Failed to load chat history:', response.statusText)
+        console.error("Failed to load chat history:", response.statusText);
       }
     } catch (error) {
-      console.error('Error loading chat history:', error)
+      console.error("Error loading chat history:", error);
     } finally {
-      setIsLoadingHistory(false)
+      setIsLoadingHistory(false);
     }
-  }
+  };
 
   // Function to switch to a different session
   const switchSession = (newSessionId: string) => {
-    setCurrentSessionId(newSessionId)
-    loadChatHistory(newSessionId)
-    onSessionChange?.(newSessionId)
-  }
+    setCurrentSessionId(newSessionId);
+    loadChatHistory(newSessionId);
+    onSessionChange?.(newSessionId);
+  };
 
   // Real function call handler with API integration
   const handleFunctionCalls = useCallback(async (functionCalls: any[]) => {
-    console.log('🔧 Handling function calls:', functionCalls)
-    
-    const results = []
+    console.log("🔧 Handling function calls:", functionCalls);
+
+    const results = [];
     for (const call of functionCalls) {
       try {
-        let result = 'Unknown function'
-        
+        let result = "Unknown function";
+
         switch (call.name) {
-          case 'check_balance':
-          case 'get_balance':
+          case "check_balance":
+          case "get_balance":
             try {
               // Handle both args and arguments properties from different sources
-              const args = call.args || call.arguments
-              const parsedArgs = typeof args === 'string' ? JSON.parse(args) : args
-              const { token, token_symbol } = parsedArgs
-              const tokenToCheck = token || token_symbol
-              
-              console.log(`💳 Real balance check for: ${tokenToCheck}`)
-              
-              // Try to get more token info from OnchainKit first (client-side)
-              let tokenInfo = null
-              try {
-                tokenInfo = await searchTokenByNameOrSymbol(tokenToCheck)
-              } catch (error) {
-                console.log('OnchainKit search failed, using fallback:', error)
+              const args = call.args || call.arguments;
+              const parsedArgs = typeof args === "string" ? JSON.parse(args) : args;
+              const { token, token_symbol } = parsedArgs;
+              const tokenToCheck = token || token_symbol;
 
-                throw new Error(`Could not fund token: ${tokenToCheck}`)
+              console.log(`💳 Real balance check for: ${tokenToCheck}`);
+
+              // Try to get more token info from OnchainKit first (client-side)
+              let tokenInfo = null;
+              try {
+                tokenInfo = await searchTokenByNameOrSymbol(tokenToCheck);
+              } catch (error) {
+                console.log("OnchainKit search failed, using fallback:", error);
+
+                throw new Error(`Could not fund token: ${tokenToCheck}`);
               }
-              
-              const balanceResponse = await fetch('/api/balance', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
+
+              const balanceResponse = await fetch("/api/balance", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
                   token: tokenInfo?.address || tokenToCheck,
-                  userAddress: address
+                  userAddress: address,
                 }),
-              })
-              
+              });
+
               if (balanceResponse.ok) {
-                const balanceData = await balanceResponse.json()
-                console.log("balance response", balanceData)
-                result = `${balanceData.formattedBalance} ${tokenInfo?.symbol || token.symbol}`
+                const balanceData = await balanceResponse.json();
+                console.log("balance response", balanceData);
+                result = `${balanceData.formattedBalance} ${tokenInfo?.symbol || token.symbol}`;
               } else {
-                result = `Error checking balance: ${balanceResponse.statusText}`
+                result = `Error checking balance: ${balanceResponse.statusText}`;
               }
             } catch (error) {
-              console.error('Balance check error:', error)
-              result = `Error checking balance: ${error instanceof Error ? error.message : 'Unknown error'}`
+              console.error("Balance check error:", error);
+              result = `Error checking balance: ${
+                error instanceof Error ? error.message : "Unknown error"
+              }`;
             }
-            break
-            
-          case 'get_price':
+            break;
+
+          case "get_price":
             try {
-              const args = call.args || call.arguments
-              const parsedArgs = typeof args === 'string' ? JSON.parse(args) : args
-              const { sell_token, buy_token, amount } = parsedArgs
-              
-              console.log(`📊 Real price check: ${sell_token} → ${buy_token}`)
-              const priceResponse = await fetch('/api/swap/price', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
+              const args = call.args || call.arguments;
+              const parsedArgs = typeof args === "string" ? JSON.parse(args) : args;
+              const { sell_token, buy_token, amount } = parsedArgs;
+
+              console.log(`📊 Real price check: ${sell_token} → ${buy_token}`);
+              const priceResponse = await fetch("/api/swap/price", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
                   sellToken: sell_token,
                   buyToken: buy_token,
-                  sellAmount: amount 
+                  sellAmount: amount,
                 }),
-              })
-              
+              });
+
               if (priceResponse.ok) {
-                const priceData = await priceResponse.json()
-                result = `${priceData.buyAmount} ${buy_token} (Price: ${priceData.price})`
+                const priceData = await priceResponse.json();
+                result = `${priceData.buyAmount} ${buy_token} (Price: ${priceData.price})`;
               } else {
-                result = `Error getting price: ${priceResponse.statusText}`
+                result = `Error getting price: ${priceResponse.statusText}`;
               }
             } catch (error) {
-              console.error('Price check error:', error)
-              result = `Error getting price: ${error instanceof Error ? error.message : 'Unknown error'}`
+              console.error("Price check error:", error);
+              result = `Error getting price: ${
+                error instanceof Error ? error.message : "Unknown error"
+              }`;
             }
-            break
-            
-          case 'get_quote':
+            break;
+
+          case "get_quote":
             try {
-              const args = call.args || call.arguments
-              const parsedArgs = typeof args === 'string' ? JSON.parse(args) : args
-              const { sell_token, buy_token, amount } = parsedArgs
-              
-              console.log(`� Real quote: ${sell_token} → ${buy_token}`)
-              const quoteResponse = await fetch('/api/swap/quote', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
+              const args = call.args || call.arguments;
+              const parsedArgs = typeof args === "string" ? JSON.parse(args) : args;
+              const { sell_token, buy_token, amount } = parsedArgs;
+
+              console.log(`� Real quote: ${sell_token} → ${buy_token}`);
+              const quoteResponse = await fetch("/api/swap/quote", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
                   sellToken: sell_token,
                   buyToken: buy_token,
-                  sellAmount: amount 
+                  sellAmount: amount,
                 }),
-              })
-              
+              });
+
               if (quoteResponse.ok) {
-                const quoteData = await quoteResponse.json()
-                result = `Quote: ${quoteData.buyAmount} ${buy_token} (Gas: ${quoteData.estimatedGas || 'N/A'})`
+                const quoteData = await quoteResponse.json();
+                result = `Quote: ${quoteData.buyAmount} ${buy_token} (Gas: ${
+                  quoteData.estimatedGas || "N/A"
+                })`;
               } else {
-                result = `Error getting quote: ${quoteResponse.statusText}`
+                result = `Error getting quote: ${quoteResponse.statusText}`;
               }
             } catch (error) {
-              console.error('Quote error:', error)
-              result = `Error getting quote: ${error instanceof Error ? error.message : 'Unknown error'}`
+              console.error("Quote error:", error);
+              result = `Error getting quote: ${
+                error instanceof Error ? error.message : "Unknown error"
+              }`;
             }
-            break
-            
+            break;
+
           default:
-            console.log(`❓ Unknown function call: ${call.name}`)
-            result = `Unknown function: ${call.name}`
+            console.log(`❓ Unknown function call: ${call.name}`);
+            result = `Unknown function: ${call.name}`;
         }
-        
-        results.push({ 
-          name: call.name, 
-          result, 
-          success: !result.includes('Error') 
-        })
+
+        results.push({
+          name: call.name,
+          result,
+          success: !result.includes("Error"),
+        });
       } catch (error) {
-        console.error(`Error executing function ${call.name}:`, error)
-        results.push({ 
-          name: call.name, 
-          result: `Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
-          success: false
-        })
+        console.error(`Error executing function ${call.name}:`, error);
+        results.push({
+          name: call.name,
+          result: `Error: ${error instanceof Error ? error.message : "Unknown error"}`,
+          success: false,
+        });
       }
     }
-    
+
     // Small delay for UX
-    await new Promise(resolve => setTimeout(resolve, 800))
-    return results
-  }, [])
+    await new Promise((resolve) => setTimeout(resolve, 800));
+    return results;
+  }, []);
 
-  const callChatAPI = useCallback(async (message: string, role: 'user' | 'system' = 'user') => {
-    const response = await fetch('/api/agent/chat', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        sessionId: currentSessionId,
-        role,
-        message,
-      }),
-    })
+  const callChatAPI = useCallback(
+    async (message: string, role: "user" | "system" = "user") => {
+      const response = await fetch("/api/agent/chat", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          sessionId: currentSessionId,
+          role,
+          message,
+        }),
+      });
 
-    if (!response.ok) {
-      throw new Error(`API call failed: ${response.statusText}`)
-    }
+      if (!response.ok) {
+        throw new Error(`API call failed: ${response.statusText}`);
+      }
 
-    return response.json()
-  }, [currentSessionId])
+      return response.json();
+    },
+    [currentSessionId]
+  );
 
   const handleSendMessage = async () => {
-    if (!inputValue.trim() || !isConnected) return
+    if (!inputValue.trim() || !isConnected) return;
 
     const userMessage: Message = {
       id: Date.now().toString(),
       content: inputValue,
       sender: "user",
       timestamp: new Date(),
-    }
+    };
 
     // Add typing indicator message
     const typingMessage: Message = {
@@ -338,28 +348,29 @@ export function ChatInterface({ sessionId: propSessionId, onSessionChange }: Cha
       sender: "ai",
       timestamp: new Date(),
       isProcessing: true,
-    }
+    };
 
-    setMessages((prev) => [...prev, userMessage, typingMessage])
-    const currentInput = inputValue
-    setInputValue("")
-    setIsLoading(true)
+    setMessages((prev) => [...prev, userMessage, typingMessage]);
+    const currentInput = inputValue;
+    setInputValue("");
+    setIsLoading(true);
 
     // Immediate scroll after adding user message
-    setTimeout(scrollToBottom, 50)
+    setTimeout(scrollToBottom, 50);
 
     try {
       // Call the chat API
-      const apiResponse = await callChatAPI(currentInput, 'user')
-      
+      const apiResponse = await callChatAPI(currentInput, "user");
+
       if (apiResponse.success && apiResponse.aiResponse) {
         // Check if the response has meaningful content or just function calls
-        const hasContent = apiResponse.aiResponse.content && 
-                          apiResponse.aiResponse.content.trim() && 
-                          apiResponse.aiResponse.content !== '[object Object]' &&
-                          !apiResponse.aiResponse.content.includes('[object Object]')
-        
-        const hasFunctionCalls = apiResponse.functionCalls && apiResponse.functionCalls.length > 0
+        const hasContent =
+          apiResponse.aiResponse.content &&
+          apiResponse.aiResponse.content.trim() &&
+          apiResponse.aiResponse.content !== "[object Object]" &&
+          !apiResponse.aiResponse.content.includes("[object Object]");
+
+        const hasFunctionCalls = apiResponse.functionCalls && apiResponse.functionCalls.length > 0;
 
         if (hasFunctionCalls && !hasContent) {
           // Pure function call response - show function processing message
@@ -369,39 +380,43 @@ export function ChatInterface({ sessionId: propSessionId, onSessionChange }: Cha
             sender: "ai",
             timestamp: new Date(),
             functionCalls: apiResponse.functionCalls,
-            isProcessing: true
-          }
-          
+            isProcessing: true,
+          };
+
           // Replace typing indicator with function processing message
-          setMessages((prev) => prev.map(msg => 
-            msg.id.startsWith('typing_') ? functionMessage : msg
-          ))
+          setMessages((prev) =>
+            prev.map((msg) => (msg.id.startsWith("typing_") ? functionMessage : msg))
+          );
 
           // Execute function calls
-          const functionResults = await handleFunctionCalls(apiResponse.functionCalls)
-          
+          const functionResults = await handleFunctionCalls(apiResponse.functionCalls);
+
           // Update message to show completion
-          setMessages((prev) => prev.map(msg => 
-            msg.id === functionMessage.id 
-              ? { ...msg, isProcessing: false, functionResults } 
-              : msg
-          ))
-          
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === functionMessage.id ? { ...msg, isProcessing: false, functionResults } : msg
+            )
+          );
+
           // Send function results back to agent as system message
-          const resultsMessage = functionResults.map(r => 
-            `${r.name}: ${r.result}`
-          ).join('\n')
-          
-          const followupResponse = await callChatAPI(resultsMessage, 'system')
-          
-          if (followupResponse.success && followupResponse.aiResponse && followupResponse.aiResponse.content) {
-            const followupMessage: Message = {
-              id: (Date.now() + 2).toString(),
-              content: followupResponse.aiResponse.content,
-              sender: "ai",
-              timestamp: new Date(),
+          const resultsMessage = functionResults.map((r) => `${r.name}: ${r.result}`).join("\n");
+          {
+            const followupResponse = await callChatAPI(resultsMessage, "system");
+
+            if (
+              followupResponse.success &&
+              followupResponse.aiResponse &&
+              followupResponse.aiResponse.content &&
+              !followupResponse.aiResponse.content.includes("promptTokensDetails")
+            ) {
+              const followupMessage: Message = {
+                id: (Date.now() + 2).toString(),
+                content: followupResponse.aiResponse.content,
+                sender: "ai",
+                timestamp: new Date(),
+              };
+              setMessages((prev) => [...prev, followupMessage]);
             }
-            setMessages((prev) => [...prev, followupMessage])
           }
         } else {
           // Regular message with content (and possibly function calls)
@@ -411,67 +426,67 @@ export function ChatInterface({ sessionId: propSessionId, onSessionChange }: Cha
             sender: "ai",
             timestamp: new Date(),
             functionCalls: apiResponse.functionCalls || [],
-            isProcessing: hasFunctionCalls
-          }
-          
+            isProcessing: hasFunctionCalls,
+          };
+
           // Replace typing indicator with actual response
-          setMessages((prev) => prev.map(msg => 
-            msg.id.startsWith('typing_') ? aiMessage : msg
-          ))
-          
+          setMessages((prev) =>
+            prev.map((msg) => (msg.id.startsWith("typing_") ? aiMessage : msg))
+          );
+
           // Handle function calls if present
           if (hasFunctionCalls) {
-            const functionResults = await handleFunctionCalls(apiResponse.functionCalls)
-            
+            const functionResults = await handleFunctionCalls(apiResponse.functionCalls);
+
             // Update message with function results
-            setMessages((prev) => prev.map(msg => 
-              msg.id === aiMessage.id 
-                ? { ...msg, isProcessing: false, functionResults } 
-                : msg
-            ))
-            
+            setMessages((prev) =>
+              prev.map((msg) =>
+                msg.id === aiMessage.id ? { ...msg, isProcessing: false, functionResults } : msg
+              )
+            );
+
             // Send function results back to agent as system message
-            const resultsMessage = functionResults.map(r => 
-              `${r.name}: ${r.result}`
-            ).join('\n')
-            
-            const followupResponse = await callChatAPI(resultsMessage, 'system')
-            
-            if (followupResponse.success && followupResponse.aiResponse && followupResponse.aiResponse.content) {
+            const resultsMessage = functionResults.map((r) => `${r.name}: ${r.result}`).join("\n");
+
+            const followupResponse = await callChatAPI(resultsMessage, "system");
+
+            if (
+              followupResponse.success &&
+              followupResponse.aiResponse &&
+              followupResponse.aiResponse.content
+            ) {
               const followupMessage: Message = {
                 id: (Date.now() + 2).toString(),
                 content: followupResponse.aiResponse.content,
                 sender: "ai",
                 timestamp: new Date(),
-              }
-              setMessages((prev) => [...prev, followupMessage])
+              };
+              setMessages((prev) => [...prev, followupMessage]);
             }
           }
         }
       }
     } catch (error) {
-      console.error('Chat error:', error)
+      console.error("Chat error:", error);
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
         content: "Sorry, I encountered an error processing your request. Please try again.",
         sender: "ai",
         timestamp: new Date(),
-      }
+      };
       // Replace typing indicator with error message
-      setMessages((prev) => prev.map(msg => 
-        msg.id.startsWith('typing_') ? errorMessage : msg
-      ))
+      setMessages((prev) => prev.map((msg) => (msg.id.startsWith("typing_") ? errorMessage : msg)));
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault()
-      handleSendMessage()
+      e.preventDefault();
+      handleSendMessage();
     }
-  }
+  };
 
   return (
     <div className="flex flex-col h-full min-h-0 relative">
@@ -496,7 +511,10 @@ export function ChatInterface({ sessionId: propSessionId, onSessionChange }: Cha
         <ScrollArea ref={scrollAreaRef} className="h-full p-3 md:p-4">
           <div className="space-y-3 md:space-y-4 pb-4">
             {messages.map((message) => (
-              <div key={message.id} className={`flex ${message.sender === "user" ? "justify-end" : "justify-start"}`}>
+              <div
+                key={message.id}
+                className={`flex ${message.sender === "user" ? "justify-end" : "justify-start"}`}
+              >
                 <div
                   className={`max-w-[85%] md:max-w-[80%] p-3 md:p-4 brutalist-border font-mono text-xs md:text-sm ${
                     message.sender === "user"
@@ -505,10 +523,10 @@ export function ChatInterface({ sessionId: propSessionId, onSessionChange }: Cha
                   } shadow-[4px_4px_0px_var(--border)] md:shadow-[8px_8px_0px_var(--border)]`}
                 >
                   {/* Message content or typing indicator */}
-                  {message.content && 
-                   message.content.trim() && 
-                   message.content !== '[object Object]' && 
-                   !message.content.includes('[object Object]') ? (
+                  {message.content &&
+                  message.content.trim() &&
+                  message.content !== "[object Object]" &&
+                  !message.content.includes("[object Object]") ? (
                     <div className="mb-2">{message.content}</div>
                   ) : message.isProcessing && message.sender === "ai" ? (
                     <div className="mb-2">
@@ -521,7 +539,9 @@ export function ChatInterface({ sessionId: propSessionId, onSessionChange }: Cha
                   {/* Function calls display */}
                   {message.functionCalls && message.functionCalls.length > 0 && (
                     <div className="mt-3 p-2 bg-muted/50 brutalist-border border-2">
-                      <div className="text-xs font-black mb-2 text-muted-foreground">FUNCTION_CALLS:</div>
+                      <div className="text-xs font-black mb-2 text-muted-foreground">
+                        FUNCTION_CALLS:
+                      </div>
                       <div className="space-y-2">
                         {message.functionCalls.map((call, index) => (
                           <div key={index} className="flex items-center gap-2">
@@ -529,7 +549,9 @@ export function ChatInterface({ sessionId: propSessionId, onSessionChange }: Cha
                               {call.name}
                             </Badge>
                             {message.isProcessing ? (
-                              <div className="text-xs text-muted-foreground animate-pulse">Processing...</div>
+                              <div className="text-xs text-muted-foreground animate-pulse">
+                                Processing...
+                              </div>
                             ) : (
                               <div className="text-xs text-muted-foreground">✓ Executed</div>
                             )}
@@ -542,7 +564,9 @@ export function ChatInterface({ sessionId: propSessionId, onSessionChange }: Cha
                   {/* Function results display */}
                   {(message as any).functionResults && (
                     <div className="mt-3 p-2 bg-green-100/50 dark:bg-green-900/20 brutalist-border border-2">
-                      <div className="text-xs font-black mb-2 text-green-700 dark:text-green-400">RESULTS:</div>
+                      <div className="text-xs font-black mb-2 text-green-700 dark:text-green-400">
+                        RESULTS:
+                      </div>
                       <div className="space-y-1">
                         {(message as any).functionResults.map((result: any, index: number) => (
                           <div key={index} className="text-xs">
@@ -556,22 +580,26 @@ export function ChatInterface({ sessionId: propSessionId, onSessionChange }: Cha
                   {/* Timestamp */}
                   <div
                     className={`text-xs opacity-70 mt-2 ${
-                      message.sender === "user" ? "text-primary-foreground" : "text-muted-foreground"
+                      message.sender === "user"
+                        ? "text-primary-foreground"
+                        : "text-muted-foreground"
                     }`}
                   >
-                    {message.timestamp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                    {message.timestamp.toLocaleTimeString([], {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
                   </div>
 
                   {/* Terminal-style indicator */}
                   <div className="flex items-center gap-1 mt-2">
                     <div className="w-2 h-2 bg-current opacity-50 rounded-full"></div>
                     <div className="text-xs opacity-50 font-black">
-                      {message.sender === "user" 
-                        ? "USER" 
+                      {message.sender === "user"
+                        ? "USER"
                         : message.isProcessing && !message.content
-                          ? "AI_AGENT_THINKING"
-                          : "AI_AGENT"
-                      }
+                        ? "AI_AGENT_THINKING"
+                        : "AI_AGENT"}
                     </div>
                     {message.isProcessing && (
                       <div className="text-xs opacity-50 font-black animate-pulse ml-2">
@@ -582,6 +610,7 @@ export function ChatInterface({ sessionId: propSessionId, onSessionChange }: Cha
                 </div>
               </div>
             ))}
+            <div ref={messagesEndRef} />
           </div>
         </ScrollArea>
       </div>
@@ -595,7 +624,9 @@ export function ChatInterface({ sessionId: propSessionId, onSessionChange }: Cha
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               onKeyPress={handleKeyPress}
-              placeholder={isConnected ? "Type swap instruction..." : "Connect wallet to start swapping..."}
+              placeholder={
+                isConnected ? "Type swap instruction..." : "Connect wallet to start swapping..."
+              }
               disabled={!isConnected || isLoading}
               className="brutalist-border bg-input text-foreground font-mono pr-12 text-sm"
             />
@@ -608,8 +639,8 @@ export function ChatInterface({ sessionId: propSessionId, onSessionChange }: Cha
             disabled={!inputValue.trim() || !isConnected || isLoading}
             className="brutalist-border bg-primary text-primary-foreground hover:bg-primary/90 font-black px-4 md:px-6 shadow-[4px_4px_0px_var(--border)] md:shadow-[8px_8px_0px_var(--border)]"
           >
-            <span className="hidden sm:inline">{isLoading ? 'SENDING...' : 'SEND'}</span>
-            <span className="sm:hidden">{isLoading ? '...' : '→'}</span>
+            <span className="hidden sm:inline">{isLoading ? "SENDING..." : "SEND"}</span>
+            <span className="sm:hidden">{isLoading ? "..." : "→"}</span>
           </Button>
         </div>
 
@@ -622,5 +653,5 @@ export function ChatInterface({ sessionId: propSessionId, onSessionChange }: Cha
         </div>
       </div>
     </div>
-  )
+  );
 }
