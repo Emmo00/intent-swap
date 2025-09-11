@@ -157,13 +157,13 @@ export function ChatInterface({ sessionId: propSessionId, onSessionChange }: Cha
             try {
               // Parse arguments - could be string or object
               const args = typeof call.arguments === 'string' ? JSON.parse(call.arguments) : call.arguments
-              const { token_symbol } = args
+              const { token } = args
               
-              console.log(`💳 Real balance check for: ${token_symbol}`)
+              console.log(`💳 Real balance check for: ${token}`)
               const balanceResponse = await fetch('/api/balance', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ token: token_symbol }),
+                body: JSON.stringify({ token }),
               })
               
               if (balanceResponse.ok) {
