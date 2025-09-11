@@ -2,7 +2,6 @@
   "name": "intent-swap",
   "version": "0.1.0",
   "private": true,
-  "type": "commonjs",
   "scripts": {
     "build": "next build",
     "dev": "next dev --turbo",
@@ -10,6 +9,8 @@
     "start": "next start"
   },
   "dependencies": {
+    "@base-org/account": "^2.2.0",
+    "@base-org/account-ui": "^1.0.1",
     "@google/genai": "^1.19.0",
     "@google/generative-ai": "^0.24.1",
     "@hookform/resolvers": "^3.10.0",
@@ -64,6 +65,7 @@
     "tailwind-merge": "^2.5.5",
     "tailwindcss-animate": "^1.0.7",
     "vaul": "^0.9.9",
+    "viem": "^2.37.5",
     "zod": "3.25.67"
   },
   "devDependencies": {

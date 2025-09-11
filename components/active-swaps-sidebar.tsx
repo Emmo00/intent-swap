@@ -116,7 +116,7 @@ export function ActiveSwapsSidebar({ onClose }: ActiveSwapsSidebarProps) {
 
       {/* Footer */}
       <div className="p-3 md:p-4 brutalist-border border-t-4">
-        <div className="text-xs font-mono text-sidebar-foreground/60 text-center">Powered by Base SpendPermissions</div>
+        <div className="text-xs font-mono text-sidebar-foreground/60 text-center">Powered by Base & 0x</div>
       </div>
     </div>
   )

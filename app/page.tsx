@@ -1,23 +1,71 @@
+"use client"
+
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
+import { AuthProvider, useAuth } from "@/components/auth-context"
+import { SignInWithBaseButton, ConnectedButton } from "@/components/sign-in-with-base"
 
-export default function LandingPage() {
+function StartSwappingButton() {
+  const { isConnected, signIn, isLoading } = useAuth()
+
+  const handleStartSwapping = async () => {
+    if (!isConnected) {
+      try {
+        await signIn()
+        // After successful sign-in, redirect to app
+        window.location.href = '/app'
+      } catch (error) {
+        console.error('Sign in failed:', error)
+      }
+    } else {
+      // Already connected, go to app
+      window.location.href = '/app'
+    }
+  }
+
+  return (
+    <Button
+      onClick={handleStartSwapping}
+      disabled={isLoading}
+      size="lg"
+      className="brutalist-border brutalist-shadow bg-primary text-primary-foreground hover:bg-primary/90 text-xl font-black px-12 py-6 h-auto"
+    >
+      {isLoading ? 'CONNECTING...' : 'START SWAPPING'}
+    </Button>
+  )
+}
+
+function NavBar() {
+  const { isConnected } = useAuth()
+
+  return (
+    <header className="brutalist-border border-b-4 p-6">
+      <div className="max-w-6xl mx-auto flex items-center justify-between">
+        <h1 className="text-2xl font-black tracking-tight">INTENTSWAP</h1>
+        <nav className="flex items-center gap-4">
+          <Link
+            href="https://github.com/Emmo00/intent-swap"
+            className="text-foreground hover:text-primary transition-colors font-mono font-bold"
+          >
+            GITHUB
+          </Link>
+          {isConnected ? (
+            <ConnectedButton />
+          ) : (
+            <SignInWithBaseButton size="sm" variant="outline">
+              SIGN IN
+            </SignInWithBaseButton>
+          )}
+        </nav>
+      </div>
+    </header>
+  )
+}
+
+function LandingContent() {
   return (
     <div className="min-h-screen bg-background text-foreground">
-      {/* Header */}
-      <header className="brutalist-border border-b-4 p-6">
-        <div className="max-w-6xl mx-auto flex items-center justify-between">
-          <h1 className="text-2xl font-black tracking-tight">INTENTSWAP</h1>
-          <nav className="flex gap-4">
-            <Link
-              href="https://github.com/Emmo00/intent-swap"
-              className="text-foreground hover:text-primary transition-colors font-mono font-bold"
-            >
-              GITHUB
-            </Link>
-          </nav>
-        </div>
-      </header>
+      <NavBar />
 
       {/* Hero Section */}
       <main className="max-w-6xl mx-auto px-6 py-20">
@@ -40,14 +88,7 @@ export default function LandingPage() {
 
           {/* CTA Button */}
           <div className="pt-8">
-            <Link href="/app">
-              <Button
-                size="lg"
-                className="brutalist-border brutalist-shadow bg-primary text-primary-foreground hover:bg-primary/90 text-xl font-black px-12 py-6 h-auto"
-              >
-                START SWAPPING
-              </Button>
-            </Link>
+            <StartSwappingButton />
           </div>
 
           {/* Feature Cards */}
@@ -86,5 +127,13 @@ export default function LandingPage() {
         </div>
       </footer>
     </div>
+  )
+}
+
+export default function LandingPage() {
+  return (
+    <AuthProvider>
+      <LandingContent />
+    </AuthProvider>
   )
 }

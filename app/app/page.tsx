@@ -4,15 +4,13 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { ChatInterface } from "@/components/chat-interface"
 import { ActiveSwapsSidebar } from "@/components/active-swaps-sidebar"
+import { AuthProvider, useAuth } from "@/components/auth-context"
+import { SignInWithBaseButton, ConnectedButton } from "@/components/sign-in-with-base"
 import { Menu, X } from "lucide-react"
 
-export default function AppPage() {
+function AppContent() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
-
-  const handleConnectWallet = () => {
-    // Wallet connection logic would go here
-    console.log("Connect wallet clicked")
-  }
+  const { isConnected } = useAuth()
 
   return (
     <div className="h-screen bg-background text-foreground flex flex-col">
@@ -28,14 +26,13 @@ export default function AppPage() {
           <div className="hidden sm:block text-xs font-mono text-muted-foreground">AI TRADING TERMINAL</div>
         </div>
 
-        <Button
-          onClick={handleConnectWallet}
-          variant="outline"
-          className="brutalist-border brutalist-shadow font-black text-xs md:text-sm bg-transparent px-3 md:px-4"
-        >
-          <span className="hidden sm:inline">CONNECT WALLET</span>
-          <span className="sm:hidden">WALLET</span>
-        </Button>
+        {isConnected ? (
+          <ConnectedButton />
+        ) : (
+          <SignInWithBaseButton size="sm" variant="outline">
+            CONNECT WALLET
+          </SignInWithBaseButton>
+        )}
       </header>
 
       {/* Main Content Area */}
@@ -53,9 +50,31 @@ export default function AppPage() {
 
         {/* Chat Interface */}
         <div className="flex-1 flex flex-col">
-          <ChatInterface />
+          {isConnected ? (
+            <ChatInterface />
+          ) : (
+            <div className="flex-1 flex flex-col items-center justify-center p-8 space-y-6">
+              <div className="text-center space-y-4">
+                <h2 className="text-2xl md:text-3xl font-black">CONNECT TO START SWAPPING</h2>
+                <p className="font-mono text-muted-foreground max-w-md">
+                  Sign in with your Base account to start chatting with the AI swap agent.
+                </p>
+              </div>
+              <SignInWithBaseButton size="lg">
+                SIGN IN WITH BASE
+              </SignInWithBaseButton>
+            </div>
+          )}
         </div>
       </div>
     </div>
+  )
+}
+
+export default function AppPage() {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
   )
 }

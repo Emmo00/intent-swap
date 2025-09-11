@@ -6,6 +6,7 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { useAuth } from "@/components/auth-context"
 
 interface Message {
   id: string
@@ -15,6 +16,7 @@ interface Message {
 }
 
 export function ChatInterface() {
+  const { isConnected, address } = useAuth()
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "1",
@@ -25,9 +27,10 @@ export function ChatInterface() {
     },
   ])
   const [inputValue, setInputValue] = useState("")
+  const [isLoading, setIsLoading] = useState(false)
 
-  const handleSendMessage = () => {
-    if (!inputValue.trim()) return
+  const handleSendMessage = async () => {
+    if (!inputValue.trim() || !isConnected) return
 
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -38,17 +41,25 @@ export function ChatInterface() {
 
     setMessages((prev) => [...prev, userMessage])
     setInputValue("")
+    setIsLoading(true)
 
-    // Simulate AI response
-    setTimeout(() => {
-      const aiMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        content: `I understand you want to ${inputValue}. Let me process this swap for you...`,
-        sender: "ai",
-        timestamp: new Date(),
-      }
-      setMessages((prev) => [...prev, aiMessage])
-    }, 1000)
+    try {
+      // TODO: Replace with actual AI API call
+      // Simulate AI response for now
+      setTimeout(() => {
+        const aiMessage: Message = {
+          id: (Date.now() + 1).toString(),
+          content: `I understand you want to ${inputValue}. Let me process this swap for you...`,
+          sender: "ai",
+          timestamp: new Date(),
+        }
+        setMessages((prev) => [...prev, aiMessage])
+        setIsLoading(false)
+      }, 1000)
+    } catch (error) {
+      console.error('Chat error:', error)
+      setIsLoading(false)
+    }
   }
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -103,7 +114,8 @@ export function ChatInterface() {
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               onKeyPress={handleKeyPress}
-              placeholder="Type swap instruction..."
+              placeholder={isConnected ? "Type swap instruction..." : "Connect wallet to start swapping..."}
+              disabled={!isConnected || isLoading}
               className="brutalist-border bg-input text-foreground font-mono pr-12 text-sm"
             />
             <div className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground font-black">
@@ -112,11 +124,11 @@ export function ChatInterface() {
           </div>
           <Button
             onClick={handleSendMessage}
-            disabled={!inputValue.trim()}
+            disabled={!inputValue.trim() || !isConnected || isLoading}
             className="brutalist-border bg-primary text-primary-foreground hover:bg-primary/90 font-black px-4 md:px-6 shadow-[4px_4px_0px_var(--border)] md:shadow-[8px_8px_0px_var(--border)]"
           >
-            <span className="hidden sm:inline">SEND</span>
-            <span className="sm:hidden">→</span>
+            <span className="hidden sm:inline">{isLoading ? 'SENDING...' : 'SEND'}</span>
+            <span className="sm:hidden">{isLoading ? '...' : '→'}</span>
           </Button>
         </div>
 
