@@ -100,8 +100,12 @@ export async function POST(request: NextRequest) {
           role: 'model',
           content: aiResponseText
         };
-        // Store the original message (model/system) in database
-        await chatDatabase.addMessage(sessionId, { role, content: message });
+        // Store the original message (convert system to model for database)
+        const messageToStore: ChatMessage = {
+          role: role === 'system' ? 'model' as const : role as 'user' | 'model',
+          content: message
+        };
+        await chatDatabase.addMessage(sessionId, messageToStore);
         // Store AI response in database
         await chatDatabase.addMessage(sessionId, aiMessage);
         console.log(`✅ Stored AI response for session ${sessionId}`);
@@ -140,14 +144,14 @@ export async function POST(request: NextRequest) {
         });
       }
     } else {
-      // Create the new message
+      // Create the new message (convert system to model for database)
       const newMessage: ChatMessage = {
-        role,
+        role: (role as string) === 'system' ? 'model' as const : role as 'user' | 'model',
         content: message
       };
-      // Store the user/system/model message in database
+      // Store the user/model message in database
       await chatDatabase.addMessage(sessionId, newMessage);
-      console.log(`💬 Stored ${role} message for session ${sessionId}`);
+      console.log(`💬 Stored ${newMessage.role} message for session ${sessionId}`);
       // Get current conversation history
       const messages = await chatDatabase.getMessages(sessionId);
       let aiResponse = null;

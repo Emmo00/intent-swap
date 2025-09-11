@@ -15,8 +15,8 @@ export async function POST(request: NextRequest) {
 
     // Decode session to get user address
     const sessionData = Buffer.from(sessionCookie.value, 'base64').toString()
-    const [userAddress, timestamp] = sessionData.split(':')
-    
+    const [_, timestamp] = sessionData.split(':')
+
     // Check if session is still valid (7 days)
     const sessionAge = Date.now() - parseInt(timestamp)
     const maxAge = 60 * 60 * 24 * 7 * 1000 // 7 days in milliseconds
@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
 
     // Parse request body
     const body = await request.json()
-    const { token } = body
+    const { token, userAddress } = body
 
     // Validate required fields
     if (!token) {
@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
       token,
       balance,
       userAddress,
-      formattedBalance: `${parseFloat(balance).toFixed(6)} ${token.toUpperCase()}`
+      formattedBalance: parseFloat(balance).toFixed(6)
     })
 
   } catch (error) {

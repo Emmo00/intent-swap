@@ -92,7 +92,6 @@ export const CHECK_BALANCE_FUNCTION: FunctionDeclaration = {
   },
 };
 
-console.log("GEMINI_API_KEY:", process.env.GEMINI_API_KEY);
 if (!process.env.GEMINI_API_KEY) {
   throw new Error("Please set the GEMINI_API_KEY environment variable");
 }

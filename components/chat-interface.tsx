@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Badge } from "@/components/ui/badge"
 import { useAuth } from "@/components/auth-context"
+import { searchTokenByNameOrSymbol } from "@/lib/token-search"
 
 interface Message {
   id: string
@@ -40,6 +41,7 @@ function TypingIndicator() {
 export function ChatInterface({ sessionId: propSessionId, onSessionChange }: ChatInterfaceProps = {}) {
   const { isConnected, address } = useAuth()
   const scrollAreaRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "1",
@@ -66,11 +68,31 @@ export function ChatInterface({ sessionId: propSessionId, onSessionChange }: Cha
     }
   }, [])
 
+  // Auto-focus input function
+  const focusInput = useCallback(() => {
+    if (inputRef.current && !isLoading) {
+      inputRef.current.focus()
+    }
+  }, [isLoading])
+
   // Auto-scroll when messages change
   useEffect(() => {
-    const timeoutId = setTimeout(scrollToBottom, 100) // Small delay to ensure DOM is updated
+    const timeoutId = setTimeout(() => {
+      scrollToBottom()
+      // Focus input after response (but not when loading history)
+      if (!isLoadingHistory) {
+        focusInput()
+      }
+    }, 150) // Slightly longer delay to ensure DOM is updated
     return () => clearTimeout(timeoutId)
-  }, [messages, scrollToBottom])
+  }, [messages, scrollToBottom, focusInput, isLoadingHistory])
+
+  // Initial focus when connected
+  useEffect(() => {
+    if (isConnected && !isLoading) {
+      focusInput()
+    }
+  }, [isConnected, focusInput, isLoading])
 
   // Update session when prop changes
   useEffect(() => {
@@ -154,21 +176,39 @@ export function ChatInterface({ sessionId: propSessionId, onSessionChange }: Cha
         
         switch (call.name) {
           case 'check_balance':
+          case 'get_balance':
             try {
-              // Parse arguments - could be string or object
-              const args = typeof call.arguments === 'string' ? JSON.parse(call.arguments) : call.arguments
-              const { token } = args
+              // Handle both args and arguments properties from different sources
+              const args = call.args || call.arguments
+              const parsedArgs = typeof args === 'string' ? JSON.parse(args) : args
+              const { token, token_symbol } = parsedArgs
+              const tokenToCheck = token || token_symbol
               
-              console.log(`💳 Real balance check for: ${token}`)
+              console.log(`💳 Real balance check for: ${tokenToCheck}`)
+              
+              // Try to get more token info from OnchainKit first (client-side)
+              let tokenInfo = null
+              try {
+                tokenInfo = await searchTokenByNameOrSymbol(tokenToCheck)
+              } catch (error) {
+                console.log('OnchainKit search failed, using fallback:', error)
+
+                throw new Error(`Could not fund token: ${tokenToCheck}`)
+              }
+              
               const balanceResponse = await fetch('/api/balance', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ token }),
+                body: JSON.stringify({ 
+                  token: tokenInfo?.address || tokenToCheck,
+                  userAddress: address
+                }),
               })
               
               if (balanceResponse.ok) {
                 const balanceData = await balanceResponse.json()
-                result = `${balanceData.balance} ${balanceData.symbol}`
+                console.log("balance response", balanceData)
+                result = `${balanceData.formattedBalance} ${tokenInfo?.symbol || token.symbol}`
               } else {
                 result = `Error checking balance: ${balanceResponse.statusText}`
               }
@@ -180,8 +220,9 @@ export function ChatInterface({ sessionId: propSessionId, onSessionChange }: Cha
             
           case 'get_price':
             try {
-              const args = typeof call.arguments === 'string' ? JSON.parse(call.arguments) : call.arguments
-              const { sell_token, buy_token, amount } = args
+              const args = call.args || call.arguments
+              const parsedArgs = typeof args === 'string' ? JSON.parse(args) : args
+              const { sell_token, buy_token, amount } = parsedArgs
               
               console.log(`📊 Real price check: ${sell_token} → ${buy_token}`)
               const priceResponse = await fetch('/api/swap/price', {
@@ -208,8 +249,9 @@ export function ChatInterface({ sessionId: propSessionId, onSessionChange }: Cha
             
           case 'get_quote':
             try {
-              const args = typeof call.arguments === 'string' ? JSON.parse(call.arguments) : call.arguments
-              const { sell_token, buy_token, amount } = args
+              const args = call.args || call.arguments
+              const parsedArgs = typeof args === 'string' ? JSON.parse(args) : args
+              const { sell_token, buy_token, amount } = parsedArgs
               
               console.log(`� Real quote: ${sell_token} → ${buy_token}`)
               const quoteResponse = await fetch('/api/swap/quote', {
@@ -549,6 +591,7 @@ export function ChatInterface({ sessionId: propSessionId, onSessionChange }: Cha
         <div className="flex gap-2">
           <div className="flex-1 relative">
             <Input
+              ref={inputRef}
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               onKeyPress={handleKeyPress}
