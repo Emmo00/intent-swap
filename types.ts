@@ -32,3 +32,10 @@ export interface SwapPrice {
   price: string;
   estimated_gas: string;
 }
+
+export interface ServerWallet {
+  address: string
+  walletClient: any
+  account: any
+  smartAccount?: any
+}

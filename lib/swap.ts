@@ -8,6 +8,7 @@ import {
   maxUint256,
   publicActions,
 } from "viem";
+import { cdpClient, getServerWallet } from "./cdp";
 
 const { ZERO_EX_API_KEY } = process.env;
 if (!ZERO_EX_API_KEY) {
@@ -81,4 +82,35 @@ export async function getSwapQuote(
 
   const quoteData = await quoteResponse.json();
   return quoteData;
+}
+
+export async function approvePermit2TokenSpend(
+  tokenAddress: `0x${string}`,
+  spender: `0x${string}`
+) {
+  const serverWallet = await getServerWallet();
+
+  // First, approve Permit2 contract to spend USDC
+  const PERMIT2_ADDRESS = spender;
+  const approveSelector = "0x095ea7b3";
+  const spenderAddress = PERMIT2_ADDRESS.slice(2).padStart(64, "0");
+  const maxApprovalAmount = "f".repeat(64); // Max uint256
+  const approveData = `${approveSelector}${spenderAddress}${maxApprovalAmount}`;
+
+  const approvalReceipt = await cdpClient.evm.sendUserOperation({
+    smartAccount: serverWallet.smartAccount,
+    network: "base",
+    calls: [
+      {
+        to: tokenAddress as `0x${string}`,
+        data: approveData as `0x${string}`,
+      },
+    ],
+    paymasterUrl: process.env.PAYMASTER_URL,
+  });
+
+  return await cdpClient.evm.waitForUserOperation({
+    smartAccountAddress: serverWallet.smartAccount.address,
+    userOpHash: approvalReceipt.userOpHash,
+  });
 }
