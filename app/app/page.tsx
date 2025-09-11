@@ -3,24 +3,59 @@
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { ChatInterface } from "@/components/chat-interface"
+import { ChatHistory } from "@/components/chat-history"
 import { ActiveSwapsSidebar } from "@/components/active-swaps-sidebar"
 import { AuthProvider, useAuth } from "@/components/auth-context"
 import { SignInWithBaseButton, ConnectedButton } from "@/components/sign-in-with-base"
-import { Menu, X } from "lucide-react"
+import { Menu, X, MessageSquare, Activity } from "lucide-react"
 
 function AppContent() {
-  const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [leftSidebarOpen, setLeftSidebarOpen] = useState(false)
+  const [rightSidebarOpen, setRightSidebarOpen] = useState(false)
+  const [leftSidebarContent, setLeftSidebarContent] = useState<'chat' | 'swaps'>('chat')
+  const [currentSessionId, setCurrentSessionId] = useState<string>()
   const { isConnected } = useAuth()
+
+  const handleSessionSelect = (sessionId: string) => {
+    setCurrentSessionId(sessionId)
+    // Close mobile sidebar after selection
+    if (window.innerWidth < 768) {
+      setLeftSidebarOpen(false)
+    }
+  }
 
   return (
     <div className="h-screen bg-background text-foreground flex flex-col">
       {/* Top Header */}
       <header className="brutalist-border border-b-4 p-3 md:p-4 flex items-center justify-between">
         <div className="flex items-center gap-2 md:gap-4">
-          {/* Mobile menu button */}
-          <Button variant="ghost" size="sm" className="md:hidden p-1" onClick={() => setSidebarOpen(!sidebarOpen)}>
-            {sidebarOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
-          </Button>
+          {/* Mobile menu buttons */}
+          <div className="flex items-center gap-1 md:hidden">
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="p-1" 
+              onClick={() => {
+                setLeftSidebarContent('chat')
+                setLeftSidebarOpen(!leftSidebarOpen)
+                setRightSidebarOpen(false)
+              }}
+            >
+              <MessageSquare className="h-4 w-4" />
+            </Button>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="p-1" 
+              onClick={() => {
+                setLeftSidebarContent('swaps')
+                setLeftSidebarOpen(!leftSidebarOpen)
+                setRightSidebarOpen(false)
+              }}
+            >
+              <Activity className="h-4 w-4" />
+            </Button>
+          </div>
 
           <h1 className="text-lg md:text-xl font-black tracking-tight">INTENTSWAP</h1>
           <div className="hidden sm:block text-xs font-mono text-muted-foreground">AI TRADING TERMINAL</div>
@@ -37,21 +72,48 @@ function AppContent() {
 
       {/* Main Content Area */}
       <div className="flex flex-1 overflow-hidden relative">
+        {/* Left Sidebar - Chat History (Desktop) */}
+        <div className="hidden md:block w-80 brutalist-border border-r-4 bg-card">
+          <ChatHistory 
+            onSelectSession={handleSessionSelect} 
+            currentSessionId={currentSessionId}
+          />
+        </div>
+
+        {/* Mobile Left Sidebar */}
         <div
-          className={`${sidebarOpen ? "translate-x-0" : "-translate-x-full"} md:translate-x-0 transition-transform duration-300 absolute md:relative z-10 h-full`}
+          className={`${leftSidebarOpen ? "translate-x-0" : "-translate-x-full"} md:hidden transition-transform duration-300 absolute z-10 h-full w-80 brutalist-border border-r-4 bg-card`}
         >
-          <ActiveSwapsSidebar onClose={() => setSidebarOpen(false)} />
+          <div className="flex items-center justify-between p-3 brutalist-border border-b-4">
+            <div className="text-sm font-black">
+              {leftSidebarContent === 'chat' ? 'CHAT_HISTORY' : 'ACTIVE_SWAPS'}
+            </div>
+            <Button variant="ghost" size="sm" className="p-1" onClick={() => setLeftSidebarOpen(false)}>
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+          {leftSidebarContent === 'chat' ? (
+            <ChatHistory 
+              onSelectSession={handleSessionSelect} 
+              currentSessionId={currentSessionId}
+            />
+          ) : (
+            <ActiveSwapsSidebar onClose={() => setLeftSidebarOpen(false)} />
+          )}
         </div>
 
         {/* Mobile overlay */}
-        {sidebarOpen && (
-          <div className="md:hidden absolute inset-0 bg-black/50 z-5" onClick={() => setSidebarOpen(false)} />
+        {leftSidebarOpen && (
+          <div className="md:hidden absolute inset-0 bg-black/50 z-5" onClick={() => setLeftSidebarOpen(false)} />
         )}
 
-        {/* Chat Interface */}
-        <div className="flex-1 flex flex-col">
+        {/* Main Chat Area */}
+        <div className="flex-1 flex flex-col min-w-0">
           {isConnected ? (
-            <ChatInterface />
+            <ChatInterface 
+              sessionId={currentSessionId}
+              onSessionChange={setCurrentSessionId}
+            />
           ) : (
             <div className="flex-1 flex flex-col items-center justify-center p-8 space-y-6">
               <div className="text-center space-y-4">
@@ -65,6 +127,11 @@ function AppContent() {
               </SignInWithBaseButton>
             </div>
           )}
+        </div>
+
+        {/* Right Sidebar - Active Swaps (Desktop) */}
+        <div className="hidden md:block w-80 brutalist-border border-l-4 bg-card">
+          <ActiveSwapsSidebar />
         </div>
       </div>
     </div>

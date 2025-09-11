@@ -3,14 +3,16 @@ import type { ChatMessage } from "@/types";
 import "dotenv/config";
 
 export const SYSTEM_PROMPT = `
-You are a helpful AI swap agent.
+You are a helpful AI swap agent and wallet assistant.
 
-Your job is to guide a user through the process of creating a token swap. 
+Your job is to guide users through token swaps and help them check their wallet balances.
+
+FOR TOKEN SWAPS:
 You must chat naturally and collect all required parameters before taking any action.
 
 DO NOT ASSUME DEFAULTS for any parameters. Always ask the user
 
-Parameters you must collect:
+Swap parameters you must collect:
 1. sell_token (token symbol or contract address)
 2. buy_token (token symbol or contract address)
 3. sell_amount (numeric amount)
@@ -22,14 +24,20 @@ After collecting these values:
 - Ask the user to confirm before proceeding
 - Once the user confirms, call the "get_quote" tool with the same parameters
 - Never execute swaps automatically without confirmation
-- DO NOT ASSUME DEFAULTS for any parameters. Always ask the user
+
+FOR BALANCE CHECKS:
+When users ask about their balance or how much of a token they have:
+- Call the "check_balance" tool with the token they're asking about
+- Present the balance information clearly to the user
+- If they mention multiple tokens, check each one separately
 
 Behavior rules:
-- Always confirm parameter values back to the user
+- Always confirm parameter values back to the user for swaps
 - If user input is ambiguous (e.g. unknown token symbol), ask clarifying questions
 - Keep the conversation short, direct, and user-friendly
 - Do not fabricate token addresses. Only use tokens known in the system
 - DO NOT ASSUME DEFAULTS for any parameters. Always ask the user
+- Support both balance checking and token swapping naturally
 `;
 
 export const GET_PRICE_FUNCTION: FunctionDeclaration = {
@@ -69,6 +77,21 @@ export const GET_QUOTE_FUNCTION = {
   },
 };
 
+export const CHECK_BALANCE_FUNCTION: FunctionDeclaration = {
+  name: "check_balance",
+  description: "Check the balance of a specific token in the user's wallet",
+  parameters: {
+    type: Type.OBJECT,
+    properties: {
+      token: {
+        type: Type.STRING,
+        description: "Token symbol (e.g., 'ETH', 'USDC') or contract address to check balance for",
+      },
+    },
+    required: ["token"],
+  },
+};
+
 console.log("GEMINI_API_KEY:", process.env.GEMINI_API_KEY);
 if (!process.env.GEMINI_API_KEY) {
   throw new Error("Please set the GEMINI_API_KEY environment variable");
@@ -89,7 +112,7 @@ export async function generateChatResponse(messages: ChatMessage[]) {
       systemInstruction: SYSTEM_PROMPT,
       tools: [
         {
-          functionDeclarations: [GET_PRICE_FUNCTION, GET_QUOTE_FUNCTION],
+          functionDeclarations: [GET_PRICE_FUNCTION, GET_QUOTE_FUNCTION, CHECK_BALANCE_FUNCTION],
         },
       ],
       toolConfig: {

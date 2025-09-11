@@ -1,8 +1,8 @@
 "use client"
 
-import type React from "react"
+import React from "react"
 
-import { useState, useCallback } from "react"
+import { useState, useCallback, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -16,6 +16,11 @@ interface Message {
   timestamp: Date
   functionCalls?: any[]
   isProcessing?: boolean
+}
+
+interface ChatInterfaceProps {
+  sessionId?: string
+  onSessionChange?: (newSessionId: string) => void
 }
 
 // Typing indicator component
@@ -32,7 +37,7 @@ function TypingIndicator() {
   )
 }
 
-export function ChatInterface() {
+export function ChatInterface({ sessionId: propSessionId, onSessionChange }: ChatInterfaceProps = {}) {
   const { isConnected, address } = useAuth()
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -45,7 +50,81 @@ export function ChatInterface() {
   ])
   const [inputValue, setInputValue] = useState("")
   const [isLoading, setIsLoading] = useState(false)
-  const [sessionId] = useState(() => `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`)
+  const [currentSessionId, setCurrentSessionId] = useState(() => 
+    propSessionId || `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+  )
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false)
+
+  // Update session when prop changes
+  useEffect(() => {
+    if (propSessionId && propSessionId !== currentSessionId) {
+      setCurrentSessionId(propSessionId)
+      loadChatHistory(propSessionId)
+    }
+  }, [propSessionId, currentSessionId])
+
+  // Load chat history for a specific session
+  const loadChatHistory = async (targetSessionId: string) => {
+    if (!isConnected) return
+
+    setIsLoadingHistory(true)
+    try {
+      const response = await fetch(`/api/agent/chat?sessionId=${targetSessionId}`, {
+        method: 'GET',
+        credentials: 'include',
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        if (data.success && data.messages) {
+          // Convert database messages to UI messages
+          const loadedMessages: Message[] = data.messages.map((msg: any, index: number) => ({
+            id: `loaded_${index}`,
+            content: msg.content,
+            sender: msg.role === 'user' ? 'user' : 'ai',
+            timestamp: new Date(data.createdAt),
+          }))
+          
+          // If no messages in history, show welcome message
+          if (loadedMessages.length === 0) {
+            setMessages([
+              {
+                id: "1",
+                content: "Welcome to IntentSwap! I'm your AI trading assistant. Tell me what you'd like to swap and I'll handle it for you.",
+                sender: "ai",
+                timestamp: new Date(),
+              },
+            ])
+          } else {
+            setMessages(loadedMessages)
+          }
+        }
+      } else if (response.status === 404) {
+        // Session doesn't exist yet, start fresh
+        setMessages([
+          {
+            id: "1",
+            content: "Welcome to IntentSwap! I'm your AI trading assistant. Tell me what you'd like to swap and I'll handle it for you.",
+            sender: "ai",
+            timestamp: new Date(),
+          },
+        ])
+      } else {
+        console.error('Failed to load chat history:', response.statusText)
+      }
+    } catch (error) {
+      console.error('Error loading chat history:', error)
+    } finally {
+      setIsLoadingHistory(false)
+    }
+  }
+
+  // Function to switch to a different session
+  const switchSession = (newSessionId: string) => {
+    setCurrentSessionId(newSessionId)
+    loadChatHistory(newSessionId)
+    onSessionChange?.(newSessionId)
+  }
 
   // Mock function call handler
   const handleFunctionCalls = useCallback(async (functionCalls: any[]) => {
@@ -54,27 +133,30 @@ export function ChatInterface() {
     const results = []
     for (const call of functionCalls) {
       switch (call.name) {
-        case 'swap_tokens':
-          console.log(`🔄 Mock swap: ${call.args.sellToken} → ${call.args.buyToken}`)
+        case 'get_price':
+          console.log(`� Mock price check: ${call.args.sell_token} → ${call.args.buy_token}`)
+          const mockPrice = (Math.random() * 0.1 + 0.9).toFixed(6) // Random price around 1
+          const mockOutput = (parseFloat(call.args.sell_amount) * parseFloat(mockPrice)).toFixed(6)
           results.push({
             name: call.name,
-            result: `Mock swap executed: ${call.args.sellAmount} ${call.args.sellToken} → ${call.args.buyToken}`,
+            result: `Price quote: ${call.args.sell_amount} ${call.args.sell_token} → ${mockOutput} ${call.args.buy_token} (Rate: ${mockPrice})`,
             success: true
           })
           break
-        case 'get_token_price':
-          console.log(`💰 Mock price check for: ${call.args.token}`)
+        case 'get_quote':
+          console.log(`� Mock quote: ${call.args.sell_token} → ${call.args.buy_token}`)
           results.push({
             name: call.name,
-            result: `Mock price for ${call.args.token}: $${(Math.random() * 100).toFixed(2)}`,
+            result: `Quote prepared for ${call.args.sell_amount} ${call.args.sell_token} → ${call.args.buy_token}. Ready to execute!`,
             success: true
           })
           break
         case 'check_balance':
           console.log(`💳 Mock balance check for: ${call.args.token}`)
+          const mockBalance = (Math.random() * 1000).toFixed(4)
           results.push({
             name: call.name,
-            result: `Mock balance for ${call.args.token}: ${(Math.random() * 1000).toFixed(4)}`,
+            result: `Balance for ${call.args.token}: ${mockBalance}`,
             success: true
           })
           break
@@ -100,7 +182,7 @@ export function ChatInterface() {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        sessionId,
+        sessionId: currentSessionId,
         role,
         message,
       }),
@@ -111,7 +193,7 @@ export function ChatInterface() {
     }
 
     return response.json()
-  }, [sessionId])
+  }, [currentSessionId])
 
   const handleSendMessage = async () => {
     if (!inputValue.trim() || !isConnected) return
@@ -210,7 +292,23 @@ export function ChatInterface() {
   }
 
   return (
-    <div className="flex flex-col h-full min-h-0">
+    <div className="flex flex-col h-full min-h-0 relative">
+      {/* Loading overlay for chat history */}
+      {isLoadingHistory && (
+        <div className="absolute inset-0 bg-background/80 backdrop-blur-sm z-10 flex items-center justify-center">
+          <div className="p-4 brutalist-border bg-card text-card-foreground font-mono text-sm shadow-[8px_8px_0px_var(--border)]">
+            <div className="flex items-center gap-2">
+              <div className="flex space-x-1">
+                <div className="w-2 h-2 bg-current rounded-full animate-bounce [animation-delay:-0.3s]"></div>
+                <div className="w-2 h-2 bg-current rounded-full animate-bounce [animation-delay:-0.15s]"></div>
+                <div className="w-2 h-2 bg-current rounded-full animate-bounce"></div>
+              </div>
+              <span className="font-black">LOADING_HISTORY...</span>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Chat Messages */}
       <div className="flex-1 min-h-0">
         <ScrollArea className="h-full p-3 md:p-4">

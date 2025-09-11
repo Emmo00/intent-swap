@@ -11,6 +11,31 @@ interface ChatRequest {
 
 export async function POST(request: NextRequest) {
   try {
+    // Check authentication
+    const sessionCookie = request.cookies.get('session')
+    
+    if (!sessionCookie?.value) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      )
+    }
+
+    // Decode session to get user address
+    const sessionData = Buffer.from(sessionCookie.value, 'base64').toString()
+    const [userAddress, timestamp] = sessionData.split(':')
+    
+    // Check if session is still valid (7 days)
+    const sessionAge = Date.now() - parseInt(timestamp)
+    const maxAge = 60 * 60 * 24 * 7 * 1000 // 7 days in milliseconds
+    
+    if (sessionAge > maxAge) {
+      return NextResponse.json(
+        { error: 'Session expired' },
+        { status: 401 }
+      )
+    }
+
     // Parse request body
     const body: ChatRequest = await request.json()
     const { sessionId, role, message } = body
@@ -31,11 +56,19 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Get or create session
+    // Get or create session (now tied to user)
     let session = await chatDatabase.getSession(sessionId)
     if (!session) {
-      console.log(`🆕 Creating new chat session: ${sessionId}`)
-      session = await chatDatabase.createSession(sessionId)
+      console.log(`🆕 Creating new chat session: ${sessionId} for user: ${userAddress}`)
+      session = await chatDatabase.createSession(sessionId, userAddress)
+    } else {
+      // Verify session belongs to the authenticated user
+      if (session.userId !== userAddress) {
+        return NextResponse.json(
+          { error: 'Access denied to this chat session' },
+          { status: 403 }
+        )
+      }
     }
 
 
@@ -213,6 +246,31 @@ export async function POST(request: NextRequest) {
 // GET endpoint to retrieve chat history
 export async function GET(request: NextRequest) {
   try {
+    // Check authentication
+    const sessionCookie = request.cookies.get('session')
+    
+    if (!sessionCookie?.value) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      )
+    }
+
+    // Decode session to get user address
+    const sessionData = Buffer.from(sessionCookie.value, 'base64').toString()
+    const [userAddress, timestamp] = sessionData.split(':')
+    
+    // Check if session is still valid
+    const sessionAge = Date.now() - parseInt(timestamp)
+    const maxAge = 60 * 60 * 24 * 7 * 1000 // 7 days in milliseconds
+    
+    if (sessionAge > maxAge) {
+      return NextResponse.json(
+        { error: 'Session expired' },
+        { status: 401 }
+      )
+    }
+
     const { searchParams } = new URL(request.url)
     const sessionId = searchParams.get('sessionId')
 
@@ -230,6 +288,14 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(
         { error: 'Session not found' },
         { status: 404 }
+      )
+    }
+
+    // Verify session belongs to the authenticated user
+    if (session.userId !== userAddress) {
+      return NextResponse.json(
+        { error: 'Access denied to this chat session' },
+        { status: 403 }
       )
     }
 
