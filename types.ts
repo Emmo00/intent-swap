@@ -3,6 +3,30 @@ export interface ChatMessage {
   content: string;
 }
 
+export interface ChatSession {
+  _id?: string
+  sessionId: string
+  userId?: string
+  messages: ChatMessage[]
+  createdAt: Date
+  updatedAt: Date
+}
+
+export interface ChatRequest {
+  sessionId: string
+  role: 'user' | 'model'
+  message: string
+}
+
+export interface ChatResponse {
+  success: boolean
+  sessionId: string
+  message: ChatMessage
+  aiResponse?: ChatMessage
+  rawAiResponse?: any
+  error?: string
+}
+
 export interface ToolCall {
   id: string;
   type: "function";
