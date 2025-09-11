@@ -40,75 +40,82 @@ function TypingIndicator() {
 
 // Helper function to format token amounts
 const formatTokenAmount = (amount: string, decimals: number = 18): string => {
-  const num = Number(amount) / Math.pow(10, decimals)
-  return num.toLocaleString(undefined, { maximumFractionDigits: 6 })
-}
+  const num = Number(amount) / Math.pow(10, decimals);
+  return num.toLocaleString(undefined, { maximumFractionDigits: 6 });
+};
 
 // Helper function to get token decimals from contract
 const getTokenDecimals = async (tokenAddress: string): Promise<number> => {
   try {
     // Standard ERC20 decimals() call
-    const response = await fetch('/api/token/decimals', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ tokenAddress })
-    })
-    
+    const response = await fetch("/api/token/decimals", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tokenAddress }),
+    });
+
     if (response.ok) {
-      const data = await response.json()
-      return data.decimals || 18
+      const data = await response.json();
+      return data.decimals || 18;
     }
   } catch (error) {
-    console.warn(`Failed to fetch decimals for ${tokenAddress}:`, error)
+    console.warn(`Failed to fetch decimals for ${tokenAddress}:`, error);
   }
-  
+
   // Fallback to 18 decimals if we can't fetch
-  return 18
-}
+  return 18;
+};
 
 // Helper function to format price data for display
-const formatPriceData = async (priceData: any, sellTokenInfo: any, buyTokenInfo: any): Promise<string> => {
+const formatPriceData = async (
+  priceData: any,
+  sellTokenInfo: any,
+  buyTokenInfo: any
+): Promise<string> => {
   // Get actual decimals from token info or fetch from contract
-  let sellDecimals = sellTokenInfo.decimals
-  let buyDecimals = buyTokenInfo.decimals
-  
+  let sellDecimals = sellTokenInfo.decimals;
+  let buyDecimals = buyTokenInfo.decimals;
+
   // Fallback to fetching decimals if not available
   if (sellDecimals === undefined) {
-    sellDecimals = await getTokenDecimals(sellTokenInfo.address)
+    sellDecimals = await getTokenDecimals(sellTokenInfo.address);
   }
   if (buyDecimals === undefined) {
-    buyDecimals = await getTokenDecimals(buyTokenInfo.address)
+    buyDecimals = await getTokenDecimals(buyTokenInfo.address);
   }
-  
-  const sellAmount = formatTokenAmount(priceData.sellAmount, sellDecimals)
-  const buyAmount = formatTokenAmount(priceData.buyAmount, buyDecimals)
-  const minBuyAmount = formatTokenAmount(priceData.minBuyAmount, buyDecimals)
-  
-  let result = `💰 SWAP QUOTE:\n`
-  result += `📤 Sell: ${sellAmount} ${sellTokenInfo.symbol}\n`
-  result += `📥 Buy: ${buyAmount} ${buyTokenInfo.symbol}\n`
-  result += `🔒 Min received: ${minBuyAmount} ${buyTokenInfo.symbol}\n`
-  
+
+  const sellAmount = formatTokenAmount(priceData.sellAmount, sellDecimals);
+  const buyAmount = formatTokenAmount(priceData.buyAmount, buyDecimals);
+  const minBuyAmount = formatTokenAmount(priceData.minBuyAmount, buyDecimals);
+
+  let result = `💰 SWAP QUOTE:\n`;
+  result += `📤 Sell: ${sellAmount} ${sellTokenInfo.symbol}\n`;
+  result += `📥 Buy: ${buyAmount} ${buyTokenInfo.symbol}\n`;
+  result += `🔒 Min received: ${minBuyAmount} ${buyTokenInfo.symbol}\n`;
+
   if (priceData.route?.fills?.length > 0) {
-    result += `🔀 Route: ${priceData.route.fills.map((fill: any) => fill.source).join(' → ')}\n`
+    result += `🔀 Route: ${priceData.route.fills.map((fill: any) => fill.source).join(" → ")}\n`;
   }
-  
+
   if (priceData.totalNetworkFee) {
-    const networkFeeETH = (Number(priceData.totalNetworkFee) / 1e18).toFixed(6)
-    result += `⛽ Network fee: ${networkFeeETH} ETH\n`
+    const networkFeeETH = (Number(priceData.totalNetworkFee) / 1e18).toFixed(6);
+    result += `⛽ Network fee: ${networkFeeETH} ETH\n`;
   }
-  
+
   if (priceData.issues) {
-    if (priceData.issues.balance && Number(priceData.issues.balance.actual) < Number(priceData.issues.balance.expected)) {
-      result += `⚠️ Insufficient balance detected\n`
+    if (
+      priceData.issues.balance &&
+      Number(priceData.issues.balance.actual) < Number(priceData.issues.balance.expected)
+    ) {
+      result += `⚠️ Insufficient balance detected\n`;
     }
     if (priceData.issues.allowance && Number(priceData.issues.allowance.actual) === 0) {
-      result += `⚠️ Token approval required\n`
+      result += `⚠️ Token approval required\n`;
     }
   }
-  
-  return result.trim()
-}
+
+  return result.trim();
+};
 
 export function ChatInterface({
   sessionId: propSessionId,
@@ -344,16 +351,34 @@ export function ChatInterface({
             try {
               const args = call.args || call.arguments;
               const parsedArgs = typeof args === "string" ? JSON.parse(args) : args;
-              const { sell_token, buy_token, amount } = parsedArgs;
+              const { sell_token, buy_token, sell_amount } = parsedArgs;
 
-              console.log(`� Real quote: ${sell_token} → ${buy_token}`);
+              let sellTokenInfo, buyTokenInfo;
+
+              // get contract addresses for sell and buy tokens
+              try {
+                sellTokenInfo = await searchTokenByNameOrSymbol(sell_token);
+                buyTokenInfo = await searchTokenByNameOrSymbol(buy_token);
+              } catch (error) {
+                console.error("Token info retrieval error:", error);
+                throw new Error(`Could not retrieve token info: ${sell_token}, ${buy_token}`);
+              }
+
+              if (!sellTokenInfo) {
+                throw new Error(`Sell token not found: ${sell_token}`);
+              }
+              if (!buyTokenInfo) {
+                throw new Error(`Buy token not found: ${buy_token}`);
+              }
+
+              console.log(`📊 Real quote: ${sell_token} → ${buy_token}`);
               const quoteResponse = await fetch("/api/swap/quote", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                  sellToken: sell_token,
-                  buyToken: buy_token,
-                  sellAmount: amount,
+                  sellToken: sellTokenInfo.address,
+                  buyToken: buyTokenInfo.address,
+                  sellAmount: sell_amount,
                 }),
               });
 

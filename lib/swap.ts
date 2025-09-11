@@ -41,7 +41,7 @@ export async function getSwapPrice(sellToken: string, buyToken: string, sellAmou
   });
 
   const priceResponse = await fetch(
-    "https://api.0x.org/swap/allowance-holder/price?" + priceParams.toString(),
+    "https://api.0x.org/swap/permit2/price?" + priceParams.toString(),
     {
       headers,
     }
@@ -70,7 +70,7 @@ export async function getSwapQuote(
   });
 
   const quoteResponse = await fetch(
-    "https://api.0x.org/swap/allowance-holder/quote?" + quoteParams.toString(),
+    "https://api.0x.org/swap/permit2/quote?" + quoteParams.toString(),
     {
       headers,
     }
