@@ -1,8 +1,3 @@
-// Test script for server wallet API
-// Run with: npx tsx test-server-wallet.ts
-
-import "dotenv/config";
-
 async function testServerWallet() {
   const baseUrl = 'http://localhost:3000'
   
