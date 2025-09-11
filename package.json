@@ -12,6 +12,7 @@
     "@base-org/account": "^2.2.0",
     "@base-org/account-ui": "^1.0.1",
     "@coinbase/cdp-sdk": "^1.38.0",
+    "@coinbase/onchainkit": "^0.38.19",
     "@google/genai": "^1.19.0",
     "@google/generative-ai": "^0.24.1",
     "@hookform/resolvers": "^3.10.0",
