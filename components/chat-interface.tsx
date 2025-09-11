@@ -18,6 +18,20 @@ interface Message {
   isProcessing?: boolean
 }
 
+// Typing indicator component
+function TypingIndicator() {
+  return (
+    <div className="flex items-center space-x-1">
+      <span className="text-xs font-black text-muted-foreground mr-2">AI_AGENT_THINKING</span>
+      <div className="flex space-x-1">
+        <div className="w-2 h-2 bg-current rounded-full animate-bounce [animation-delay:-0.3s]"></div>
+        <div className="w-2 h-2 bg-current rounded-full animate-bounce [animation-delay:-0.15s]"></div>
+        <div className="w-2 h-2 bg-current rounded-full animate-bounce"></div>
+      </div>
+    </div>
+  )
+}
+
 export function ChatInterface() {
   const { isConnected, address } = useAuth()
   const [messages, setMessages] = useState<Message[]>([
@@ -109,7 +123,16 @@ export function ChatInterface() {
       timestamp: new Date(),
     }
 
-    setMessages((prev) => [...prev, userMessage])
+    // Add typing indicator message
+    const typingMessage: Message = {
+      id: `typing_${Date.now()}`,
+      content: "",
+      sender: "ai",
+      timestamp: new Date(),
+      isProcessing: true,
+    }
+
+    setMessages((prev) => [...prev, userMessage, typingMessage])
     const currentInput = inputValue
     setInputValue("")
     setIsLoading(true)
@@ -128,7 +151,10 @@ export function ChatInterface() {
           isProcessing: (apiResponse.functionCalls && apiResponse.functionCalls.length > 0)
         }
         
-        setMessages((prev) => [...prev, aiMessage])
+        // Replace typing indicator with actual response
+        setMessages((prev) => prev.map(msg => 
+          msg.id.startsWith('typing_') ? aiMessage : msg
+        ))
         
         // Handle function calls if present
         if (apiResponse.functionCalls && apiResponse.functionCalls.length > 0) {
@@ -167,7 +193,10 @@ export function ChatInterface() {
         sender: "ai",
         timestamp: new Date(),
       }
-      setMessages((prev) => [...prev, errorMessage])
+      // Replace typing indicator with error message
+      setMessages((prev) => prev.map(msg => 
+        msg.id.startsWith('typing_') ? errorMessage : msg
+      ))
     } finally {
       setIsLoading(false)
     }
@@ -195,8 +224,16 @@ export function ChatInterface() {
                       : "bg-card text-card-foreground mr-2 md:mr-4"
                   } shadow-[4px_4px_0px_var(--border)] md:shadow-[8px_8px_0px_var(--border)]`}
                 >
-                  {/* Message content */}
-                  <div className="mb-2">{message.content}</div>
+                  {/* Message content or typing indicator */}
+                  {message.content ? (
+                    <div className="mb-2">{message.content}</div>
+                  ) : message.isProcessing && message.sender === "ai" ? (
+                    <div className="mb-2">
+                      <TypingIndicator />
+                    </div>
+                  ) : (
+                    <div className="mb-2">{message.content}</div>
+                  )}
 
                   {/* Function calls display */}
                   {message.functionCalls && message.functionCalls.length > 0 && (
@@ -245,9 +282,18 @@ export function ChatInterface() {
                   {/* Terminal-style indicator */}
                   <div className="flex items-center gap-1 mt-2">
                     <div className="w-2 h-2 bg-current opacity-50 rounded-full"></div>
-                    <div className="text-xs opacity-50 font-black">{message.sender === "user" ? "USER" : "AI_AGENT"}</div>
+                    <div className="text-xs opacity-50 font-black">
+                      {message.sender === "user" 
+                        ? "USER" 
+                        : message.isProcessing && !message.content
+                          ? "AI_AGENT_THINKING"
+                          : "AI_AGENT"
+                      }
+                    </div>
                     {message.isProcessing && (
-                      <div className="text-xs opacity-50 font-black animate-pulse ml-2">PROCESSING...</div>
+                      <div className="text-xs opacity-50 font-black animate-pulse ml-2">
+                        {!message.content ? "THINKING..." : "PROCESSING..."}
+                      </div>
                     )}
                   </div>
                 </div>
