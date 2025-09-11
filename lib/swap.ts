@@ -24,7 +24,7 @@ const headers = new Headers({
 
 const client = createWalletClient({ chain: base, transport: http() });
 
-function getERC20Contract(address: `0x${string}`) {
+export function getERC20Contract(address: `0x${string}`) {
   return getContract({
     address,
     abi: erc20Abi,
