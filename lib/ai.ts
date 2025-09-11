@@ -3,7 +3,7 @@ import type { ChatMessage } from "@/types";
 import "dotenv/config";
 
 export const SYSTEM_PROMPT = `
-You are a helpful AI swap agent and wallet assistant.
+You are a helpful AI swap agent and wallet assistant for IntentSwap.
 
 Your job is to guide users through token swaps and help them check their wallet balances.
 
@@ -14,16 +14,26 @@ DO NOT ASSUME DEFAULTS for any parameters. Always ask the user
 
 Swap parameters you must collect:
 1. sell_token (token symbol or contract address)
-2. buy_token (token symbol or contract address)
+2. buy_token (token symbol or contract address)  
 3. sell_amount (numeric amount)
 
-After collecting these values:
-- RE ECHO THE SWAP PARAMETERS BACK TO THE USER FOR CONFIRMATION
-- Call the "get_price" tool with { sell_token, buy_token, sell_amount }
-- Present the returned price and details back to the user
-- Ask the user to confirm before proceeding
-- Once the user confirms, call the "get_quote" tool with the same parameters
-- Never execute swaps automatically without confirmation
+SWAP FLOW:
+1. After collecting these values, RE-ECHO THE SWAP PARAMETERS BACK TO THE USER FOR CONFIRMATION
+2. Call the "get_price" tool with { sell_token, buy_token, sell_amount } to show pricing information
+3. Present the returned price and details back to the user
+4. Ask the user to confirm before proceeding with the actual swap
+5. Once the user confirms, call the "execute_swap" tool with the same parameters
+6. The "execute_swap" tool will:
+   - Request spend permissions from the user's wallet
+   - Execute the complete swap transaction using CDP server wallets
+   - Transfer the bought tokens to the user's wallet
+   - Return transaction details
+
+IMPORTANT: 
+- "get_price" is for showing estimates and pricing information only
+- "execute_swap" executes the actual swap transaction and requires user wallet interaction
+- Never execute swaps automatically without explicit user confirmation
+- Always explain that the swap will require wallet signatures for spend permissions
 
 FOR BALANCE CHECKS:
 When users ask about their balance or how much of a token they have:
@@ -38,6 +48,7 @@ Behavior rules:
 - Do not fabricate token addresses. Only use tokens known in the system
 - DO NOT ASSUME DEFAULTS for any parameters. Always ask the user
 - Support both balance checking and token swapping naturally
+- Explain what spend permissions are when requesting swaps
 `;
 
 export const GET_PRICE_FUNCTION: FunctionDeclaration = {
@@ -63,15 +74,24 @@ export const GET_PRICE_FUNCTION: FunctionDeclaration = {
   },
 };
 
-export const GET_QUOTE_FUNCTION = {
-  name: "get_quote",
-  description: "Get a final executable swap quote after user confirmation",
+export const EXECUTE_SWAP_FUNCTION: FunctionDeclaration = {
+  name: "execute_swap",
+  description: "Execute the actual swap after user confirmation. This will request spend permissions and perform the complete swap transaction.",
   parameters: {
     type: Type.OBJECT,
     properties: {
-      sell_token: { type: Type.STRING },
-      buy_token: { type: Type.STRING },
-      sell_amount: { type: Type.STRING },
+      sell_token: { 
+        type: Type.STRING,
+        description: "Token symbol or contract address to sell"
+      },
+      buy_token: { 
+        type: Type.STRING,
+        description: "Token symbol or contract address to buy"
+      },
+      sell_amount: { 
+        type: Type.STRING,
+        description: "Amount of sell_token to sell, in decimal string format"
+      },
     },
     required: ["sell_token", "buy_token", "sell_amount"],
   },
@@ -111,7 +131,7 @@ export async function generateChatResponse(messages: ChatMessage[]) {
       systemInstruction: SYSTEM_PROMPT,
       tools: [
         {
-          functionDeclarations: [GET_PRICE_FUNCTION, GET_QUOTE_FUNCTION, CHECK_BALANCE_FUNCTION],
+          functionDeclarations: [GET_PRICE_FUNCTION, EXECUTE_SWAP_FUNCTION, CHECK_BALANCE_FUNCTION],
         },
       ],
       toolConfig: {

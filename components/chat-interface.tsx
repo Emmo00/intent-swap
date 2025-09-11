@@ -347,7 +347,7 @@ export function ChatInterface({
             }
             break;
 
-          case "get_quote":
+          case "execute_swap":
             try {
               const args = call.args || call.arguments;
               const parsedArgs = typeof args === "string" ? JSON.parse(args) : args;
