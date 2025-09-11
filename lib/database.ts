@@ -4,8 +4,8 @@ import "dotenv/config";
 
 const uri = process.env.MONGODB_URI || 'mongodb://localhost:27017/mydatabase'
 
-// Define the ChatMessage schema
-const ChatMessageSchema = new Schema<ChatMessage>({
+// Define the ChatMessage schema inline to avoid type complexity
+const ChatMessageSchema = new Schema({
   role: {
     type: String,
     enum: ['user', 'model'],
