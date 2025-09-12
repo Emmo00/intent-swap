@@ -50,19 +50,6 @@ export function ActivePermissionsSidebar({ userAddress, spenderAddress, tokenAdd
 
   return (
     <div className="w-80 md:w-80 sm:w-72 brutalist-border border-r-4 bg-sidebar text-sidebar-foreground flex flex-col h-full">
-      {/* Header */}
-      <div className="p-3 md:p-4 brutalist-border border-b-4 flex items-center justify-between">
-        <div>
-          <h2 className="font-black text-base md:text-lg tracking-tight">ACTIVE PERMISSIONS</h2>
-          <p className="text-xs text-sidebar-foreground/70 font-mono mt-1">SpendPermission grants</p>
-        </div>
-        {onClose && (
-          <Button variant="ghost" size="sm" className="md:hidden p-1" onClick={onClose}>
-            <X className="h-4 w-4" />
-          </Button>
-        )}
-      </div>
-
       {/* Permissions List */}
       <ScrollArea className="flex-1">
         <div className="p-3 md:p-4 space-y-3">

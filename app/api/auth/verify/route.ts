@@ -1,12 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createPublicClient, http } from 'viem'
 import { base } from 'viem/chains'
-import { nonces } from '../nonce/route'
 
 const client = createPublicClient({ 
   chain: base, 
   transport: http() 
 })
+
+// For serverless environments, we'll use a time-based nonce validation
+// instead of storing nonces in memory
+function isValidNonce(nonce: string): boolean {
+  try {
+    // Decode the nonce to get timestamp
+    const timestamp = parseInt(nonce.substring(0, 10), 16)
+    const now = Math.floor(Date.now() / 1000)
+    
+    // Allow nonces that are up to 10 minutes old
+    const maxAge = 10 * 60 // 10 minutes
+    return (now - timestamp) <= maxAge && (now - timestamp) >= 0
+  } catch {
+    return false
+  }
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -23,15 +38,12 @@ export async function POST(request: NextRequest) {
     const nonceMatch = message.match(/Nonce: ([a-f0-9]{32})/)
     const nonce = nonceMatch?.[1]
 
-    if (!nonce || !nonces.has(nonce)) {
+    if (!nonce || !isValidNonce(nonce)) {
       return NextResponse.json(
         { error: 'Invalid or expired nonce' }, 
         { status: 400 }
       )
     }
-
-    // Remove used nonce
-    nonces.delete(nonce)
 
     // Verify signature
     const isValid = await client.verifyMessage({

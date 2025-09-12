@@ -1,21 +1,13 @@
 import { NextResponse } from 'next/server'
 import crypto from 'crypto'
 
-// Simple in-memory nonce store (replace with Redis in production)
-const nonces = new Set<string>()
-
+// Generate time-based nonce that can be validated without server-side storage
 export async function GET() {
   try {
-    const nonce = crypto.randomBytes(16).toString('hex')
-    nonces.add(nonce)
-    
-    // Clean up old nonces (basic cleanup)
-    if (nonces.size > 1000) {
-      const nonceArray = Array.from(nonces)
-      const toKeep = nonceArray.slice(-500)
-      nonces.clear()
-      toKeep.forEach(n => nonces.add(n))
-    }
+    // Create a nonce with timestamp prefix for serverless environments
+    const timestamp = Math.floor(Date.now() / 1000).toString(16).padStart(10, '0')
+    const randomBytes = crypto.randomBytes(11).toString('hex')
+    const nonce = timestamp + randomBytes
     
     return new NextResponse(nonce, {
       headers: { 'Content-Type': 'text/plain' }
@@ -25,5 +17,3 @@ export async function GET() {
     return NextResponse.json({ error: 'Failed to generate nonce' }, { status: 500 })
   }
 }
-
-export { nonces }
