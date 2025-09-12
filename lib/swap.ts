@@ -11,6 +11,7 @@ import {
 import { getCdpClient, getServerWallet } from "./cdp";
 
 const { ZERO_EX_API_KEY } = process.env;
+
 if (!ZERO_EX_API_KEY) {
   throw new Error("Missing ZERO_EX_API_KEY in environment variables");
 }

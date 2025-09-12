@@ -1,58 +1,51 @@
 "use client"
 
+import { useEffect, useState } from "react"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { X } from "lucide-react"
+import { getUserSpendPermissions, revokeSpendPermission } from "@/lib/spend-permissions"
 
-interface ActiveSwap {
-  id: string
-  tokenPair: string
-  amount: string
-  status: "pending" | "completed" | "failed"
-  timestamp: Date
-}
-
-const mockSwaps: ActiveSwap[] = [
-  {
-    id: "1",
-    tokenPair: "ETH → USDC",
-    amount: "0.5 ETH",
-    status: "completed",
-    timestamp: new Date(Date.now() - 300000),
-  },
-  {
-    id: "2",
-    tokenPair: "USDC → WETH",
-    amount: "1000 USDC",
-    status: "pending",
-    timestamp: new Date(Date.now() - 120000),
-  },
-  {
-    id: "3",
-    tokenPair: "DAI → ETH",
-    amount: "500 DAI",
-    status: "completed",
-    timestamp: new Date(Date.now() - 600000),
-  },
-]
-
-interface ActiveSwapsSidebarProps {
+interface ActivePermissionsSidebarProps {
+  userAddress: string
+  spenderAddress: string
+  tokenAddress: string
   onClose?: () => void
 }
 
-export function ActiveSwapsSidebar({ onClose }: ActiveSwapsSidebarProps) {
-  const getStatusColor = (status: ActiveSwap["status"]) => {
-    switch (status) {
-      case "completed":
-        return "bg-primary text-primary-foreground"
-      case "pending":
-        return "bg-secondary text-secondary-foreground"
-      case "failed":
-        return "bg-destructive text-destructive-foreground"
-      default:
-        return "bg-muted text-muted-foreground"
+export function ActivePermissionsSidebar({ userAddress, spenderAddress, tokenAddress, onClose }: ActivePermissionsSidebarProps) {
+  const [permissions, setPermissions] = useState<any[]>([])
+  const [loading, setLoading] = useState(false)
+  const [revoking, setRevoking] = useState<string | null>(null)
+
+  const loadPermissions = async () => {
+    setLoading(true)
+    try {
+      const perms = await getUserSpendPermissions(userAddress, spenderAddress, tokenAddress)
+      setPermissions(perms)
+    } catch (e) {
+      setPermissions([])
     }
+    setLoading(false)
+  }
+
+  useEffect(() => {
+    if (userAddress && spenderAddress && tokenAddress) {
+      loadPermissions()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userAddress, spenderAddress, tokenAddress])
+
+  const handleRevoke = async (permission: any) => {
+    setRevoking(permission.permissionHash || permission.id || "")
+    try {
+      await revokeSpendPermission(permission.permission || permission)
+      await loadPermissions()
+    } catch (e) {
+      // Optionally show error
+    }
+    setRevoking(null)
   }
 
   return (
@@ -60,11 +53,9 @@ export function ActiveSwapsSidebar({ onClose }: ActiveSwapsSidebarProps) {
       {/* Header */}
       <div className="p-3 md:p-4 brutalist-border border-b-4 flex items-center justify-between">
         <div>
-          <h2 className="font-black text-base md:text-lg tracking-tight">ACTIVE SWAPS</h2>
-          <p className="text-xs text-sidebar-foreground/70 font-mono mt-1">SpendPermission transactions</p>
+          <h2 className="font-black text-base md:text-lg tracking-tight">ACTIVE PERMISSIONS</h2>
+          <p className="text-xs text-sidebar-foreground/70 font-mono mt-1">SpendPermission grants</p>
         </div>
-
-        {/* Mobile close button */}
         {onClose && (
           <Button variant="ghost" size="sm" className="md:hidden p-1" onClick={onClose}>
             <X className="h-4 w-4" />
@@ -72,45 +63,41 @@ export function ActiveSwapsSidebar({ onClose }: ActiveSwapsSidebarProps) {
         )}
       </div>
 
-      {/* Swaps List */}
+      {/* Permissions List */}
       <ScrollArea className="flex-1">
         <div className="p-3 md:p-4 space-y-3">
-          {mockSwaps.map((swap) => (
-            <div
-              key={swap.id}
-              className="brutalist-border bg-sidebar-accent p-2 md:p-3 space-y-2 shadow-[4px_4px_0px_var(--border)] md:shadow-[8px_8px_0px_var(--border)]"
-            >
-              {/* Token Pair */}
-              <div className="flex items-center justify-between">
-                <div className="font-black text-xs md:text-sm">{swap.tokenPair}</div>
-                <Badge className={`${getStatusColor(swap.status)} font-black text-xs brutalist-border`}>
-                  {swap.status.toUpperCase()}
-                </Badge>
-              </div>
-
-              {/* Amount */}
-              <div className="text-xs font-mono text-sidebar-foreground/80">{swap.amount}</div>
-
-              {/* Timestamp */}
-              <div className="text-xs text-sidebar-foreground/60 font-mono">
-                {swap.timestamp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-              </div>
-
-              {/* Terminal indicator */}
-              <div className="flex items-center gap-1 pt-1">
+          {loading ? (
+            <div className="text-xs text-sidebar-foreground/60">Loading...</div>
+          ) : permissions.length === 0 ? (
+            <div className="text-xs text-sidebar-foreground/60">No active spend permissions found.</div>
+          ) : (
+            permissions.map((perm, idx) => {
+              const allowance = perm.permission?.allowance || perm.allowance
+              const period = perm.permission?.periodInDays || perm.periodInDays
+              const hash = perm.permission?.permissionHash || perm.permissionHash || perm.id || ""
+              return (
                 <div
-                  className={`w-2 h-2 rounded-full ${
-                    swap.status === "pending"
-                      ? "bg-secondary animate-pulse"
-                      : swap.status === "completed"
-                        ? "bg-primary"
-                        : "bg-destructive"
-                  }`}
-                ></div>
-                <div className="text-xs font-mono text-sidebar-foreground/50">TX_{swap.id.padStart(3, "0")}</div>
-              </div>
-            </div>
-          ))}
+                  key={hash + idx}
+                  className="brutalist-border bg-sidebar-accent p-2 md:p-3 space-y-2 shadow-[4px_4px_0px_var(--border)] md:shadow-[8px_8px_0px_var(--border)]"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="font-black text-xs md:text-sm">{((Number(allowance) / 1_000_000).toFixed(2))} USDC</div>
+                    <Badge className="bg-primary text-primary-foreground font-black text-xs brutalist-border">{period}d</Badge>
+                  </div>
+                  <div className="text-xs font-mono text-sidebar-foreground/80">Hash: {hash.slice(0, 10)}...</div>
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    className="w-full brutalist-border"
+                    disabled={revoking === hash}
+                    onClick={() => handleRevoke(perm)}
+                  >
+                    {revoking === hash ? "Revoking..." : "Revoke"}
+                  </Button>
+                </div>
+              )
+            })
+          )}
         </div>
       </ScrollArea>
 

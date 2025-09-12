@@ -4,7 +4,7 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { ChatInterface } from "@/components/chat-interface"
 import { ChatHistory } from "@/components/chat-history"
-import { ActiveSwapsSidebar } from "@/components/active-swaps-sidebar"
+import { ActivePermissionsSidebar } from "@/components/active-swaps-sidebar"
 import { AuthProvider, useAuth } from "@/components/auth-context"
 import { SignInWithBaseButton, ConnectedButton } from "@/components/sign-in-with-base"
 import { Menu, X, MessageSquare, Activity } from "lucide-react"
@@ -12,9 +12,9 @@ import { Menu, X, MessageSquare, Activity } from "lucide-react"
 function AppContent() {
   const [leftSidebarOpen, setLeftSidebarOpen] = useState(false)
   const [rightSidebarOpen, setRightSidebarOpen] = useState(false)
-  const [leftSidebarContent, setLeftSidebarContent] = useState<'chat' | 'swaps'>('chat')
+  const [leftSidebarContent, setLeftSidebarContent] = useState<'chat' | 'permissions'>('chat')
   const [currentSessionId, setCurrentSessionId] = useState<string>()
-  const { isConnected } = useAuth()
+  const { isConnected, address } = useAuth()
 
   const handleSessionSelect = (sessionId: string) => {
     setCurrentSessionId(sessionId)
@@ -48,7 +48,7 @@ function AppContent() {
               size="sm" 
               className="p-1" 
               onClick={() => {
-                setLeftSidebarContent('swaps')
+                setLeftSidebarContent('permissions')
                 setLeftSidebarOpen(!leftSidebarOpen)
                 setRightSidebarOpen(false)
               }}
@@ -86,7 +86,7 @@ function AppContent() {
         >
           <div className="flex items-center justify-between p-3 brutalist-border border-b-4">
             <div className="text-sm font-black">
-              {leftSidebarContent === 'chat' ? 'CHAT_HISTORY' : 'ACTIVE_SWAPS'}
+              {leftSidebarContent === 'chat' ? 'CHAT_HISTORY' : 'ACTIVE_PERMISSIONS'}
             </div>
             <Button variant="ghost" size="sm" className="p-1" onClick={() => setLeftSidebarOpen(false)}>
               <X className="h-4 w-4" />
@@ -98,7 +98,12 @@ function AppContent() {
               currentSessionId={currentSessionId}
             />
           ) : (
-            <ActiveSwapsSidebar onClose={() => setLeftSidebarOpen(false)} />
+            <ActivePermissionsSidebar 
+              userAddress={address || ''}
+              spenderAddress={process.env.NEXT_PUBLIC_INTENTSWAP_SPENDER || '0x0000000000000000000000000000000000000000'}
+              tokenAddress={process.env.NEXT_PUBLIC_USDC_BASE || '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913'}
+              onClose={() => setLeftSidebarOpen(false)} 
+            />
           )}
         </div>
 
@@ -131,7 +136,11 @@ function AppContent() {
 
         {/* Right Sidebar - Active Swaps (Desktop) */}
         <div className="hidden md:block w-80 brutalist-border border-l-4 bg-card">
-          <ActiveSwapsSidebar />
+          <ActivePermissionsSidebar 
+            userAddress={address || ''}
+            spenderAddress={process.env.NEXT_PUBLIC_INTENTSWAP_SPENDER || '0x0000000000000000000000000000000000000000'}
+            tokenAddress={process.env.NEXT_PUBLIC_USDC_BASE || '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913'}
+          />
         </div>
       </div>
     </div>

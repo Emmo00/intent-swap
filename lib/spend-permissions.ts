@@ -1,3 +1,5 @@
+"use client";
+
 import {
   requestSpendPermission,
   prepareSpendCallData,
@@ -6,8 +8,26 @@ import {
   requestRevoke,
 } from "@base-org/account/spend-permission";
 import { createBaseAccountSDK } from "@base-org/account";
-import { getERC20Contract } from "./swap";
-import { parseUnits } from "viem";
+import {
+  createWalletClient,
+  http,
+  getContract,
+  erc20Abi,
+  parseUnits,
+  maxUint256,
+  publicActions,
+} from "viem";
+import { base } from "viem/chains";
+
+const client = createWalletClient({ chain: base, transport: http() });
+
+export function getERC20Contract(address: `0x${string}`) {
+  return getContract({
+    address,
+    abi: erc20Abi,
+    client,
+  });
+}
 
 export interface SpendPermission {
   account: string;
@@ -18,7 +38,6 @@ export interface SpendPermission {
   periodInDays: number;
   signature?: string;
 }
-
 
 export async function requestUserSpendPermission(
   userAccount: string,
@@ -60,7 +79,11 @@ export async function requestUserSpendPermission(
   }
 }
 
-export async function getUserSpendPermissions(userAccount: string, spenderAccount: string, tokenAddress: string) {
+export async function getUserSpendPermissions(
+  userAccount: string,
+  spenderAccount: string,
+  tokenAddress: string
+) {
   try {
     console.log("🔧 Creating Base Account SDK...");
     const sdk = createBaseAccountSDK({
