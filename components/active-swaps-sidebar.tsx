@@ -145,7 +145,7 @@ export function ActivePermissionsSidebar({ userAddress, onClose }: ActivePermiss
   return (
     <div className="w-80 md:w-80 sm:w-72 brutalist-border border-r-4 bg-sidebar text-sidebar-foreground flex flex-col h-full">
       {/* Permissions List */}
-      <ScrollArea className="flex-1">
+      <ScrollArea className="flex-1 h-0">
         <div className="p-3 md:p-4 space-y-3">
           {error && (
             <div className="brutalist-border bg-destructive text-destructive-foreground p-2 md:p-3 text-xs font-black">
