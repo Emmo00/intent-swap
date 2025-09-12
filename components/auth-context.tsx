@@ -58,40 +58,29 @@ export function AuthProvider({ children }: AuthProviderProps) {
       const accounts = await provider.request({ method: 'eth_requestAccounts' }) as string[]
       const userAddress = accounts[0]
 
-      // Get a fresh nonce
-      const nonceResponse = await fetch('/api/auth/nonce')
-      const nonce = await nonceResponse.text()
-
       // Switch to Base Chain
       await provider.request({
         method: "wallet_switchEthereumChain",
         params: [{ chainId: '0x2105' }], // Base Mainnet
       })
 
-      // Try the new wallet_connect method first
+      // Try to connect wallet and get address
       try {
         const connectResult = await provider.request({
           method: 'wallet_connect',
           params: [{
-            version: '1',
-            capabilities: {
-              signInWithEthereum: { 
-                nonce, 
-                chainId: '0x2105'
-              }
-            }
+            version: '1'
           }]
         }) as any
 
         const { accounts: connectedAccounts } = connectResult
         const { address: connectedAddress } = connectedAccounts[0]
-        const { message, signature } = connectedAccounts[0].capabilities.signInWithEthereum
 
-        // Verify with backend
+        // Create session with just the address
         const verifyResponse = await fetch('/api/auth/verify', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ address: connectedAddress, message, signature })
+          body: JSON.stringify({ address: connectedAddress })
         })
 
         if (verifyResponse.ok) {
@@ -101,27 +90,25 @@ export function AuthProvider({ children }: AuthProviderProps) {
           throw new Error('Authentication failed')
         }
       } catch (walletError: any) {
-        // Fallback for wallets that don't support wallet_connect
-        console.log('Falling back to personal_sign method:', walletError.message)
+        // Fallback: just request accounts and use the address
+        console.log('Falling back to eth_requestAccounts method:', walletError.message)
         
-        // Create SIWE message manually
-        const message = `IntentSwap wants you to sign in with your Ethereum account:\n${userAddress}\n\nSign in to IntentSwap\n\nURI: ${window.location.origin}\nVersion: 1\nChain ID: 8453\nNonce: ${nonce}\nIssued At: ${new Date().toISOString()}`
-        
-        const signature = await provider.request({
-          method: 'personal_sign',
-          params: [message, userAddress]
-        }) as string
+        const accounts = await provider.request({
+          method: 'eth_requestAccounts'
+        }) as string[]
 
-        // Verify with backend
+        const address = accounts[0]
+
+        // Create session with just the address  
         const verifyResponse = await fetch('/api/auth/verify', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ address: userAddress, message, signature })
+          body: JSON.stringify({ address })
         })
 
         if (verifyResponse.ok) {
           setIsConnected(true)
-          setAddress(userAddress)
+          setAddress(address)
         } else {
           throw new Error('Authentication failed')
         }
