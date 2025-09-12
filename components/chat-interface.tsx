@@ -12,7 +12,7 @@ import { searchTokenByNameOrSymbol } from "@/lib/token-search";
 import { requestSpendPermission, prepareSpendCallData } from "@base-org/account/spend-permission";
 import { createBaseAccountSDK } from "@base-org/account";
 import { base } from "viem/chains";
-import { parseUnits } from "viem";
+import { formatUnits, parseUnits } from "viem";
 
 interface Message {
   id: string;
@@ -121,17 +121,26 @@ const formatPriceData = async (
   return result.trim();
 };
 
-const formatExecuteSuccessfulData = async (receipt: any, quote: any, buyTokenInfo: any, sellTokenInfo: any): Promise<string> => {
+const formatExecuteSuccessfulData = async (
+  receipt: any,
+  quote: any,
+  buyTokenInfo: any,
+  sellTokenInfo: any
+): Promise<string> => {
   const explorerUrl = `https://basescan.org/tx/${receipt.transactionHash}`;
   const accountUrl = `https://account.base.app/activity`;
-  
+
   let result = `✅ Swap Successful\n`;
   result += `📄 Transaction Hash: ${receipt.transactionHash}\n`;
-  result += `📤 Sold: ${quote.sellAmount} ${sellTokenInfo.symbol}\n`;
-  result += `📥 Bought: ${quote.buyAmount} ${buyTokenInfo.symbol}\n`;
+  result += `📤 Sold: ${formatUnits(quote.sellAmount, sellTokenInfo.decimals)} ${
+    sellTokenInfo.symbol
+  }\n`;
+  result += `📥 Bought: ${formatUnits(quote.buyAmount, buyTokenInfo.decimals)} ${
+    buyTokenInfo.symbol
+  }\n`;
   result += "\n";
-  result += `<a href="${explorerUrl}" target="_blank" rel="noopener noreferrer" style="color: #3b82f6; text-decoration: none; font-weight: bold;">🔗 View on Base Explorer</a>\n`;
-  result += `<a href="${accountUrl}" target="_blank" rel="noopener noreferrer" style="color: #8b5cf6; text-decoration: none; font-weight: bold;">📊 View Account Activities</a>`;
+  result += `<a href="${explorerUrl}" target="_blank" rel="noopener noreferrer" style="color: #1e40af; text-decoration: none; font-weight: bold;">🔗 View on Base Explorer</a>\n`;
+  result += `<a href="${accountUrl}" target="_blank" rel="noopener noreferrer" style="color: #6d28d9; text-decoration: none; font-weight: bold;">📊 View Account Activities</a>`;
   return result;
 };
 
@@ -401,7 +410,6 @@ export function ChatInterface({
                 throw new Error(`Failed to get server wallet: ${serverWalletResponse.statusText}`);
               }
 
-              
               const serverWalletData = await serverWalletResponse.json();
               console.log("server wallet", serverWalletData);
               const serverWallet = serverWalletData.wallet;
@@ -444,7 +452,12 @@ export function ChatInterface({
 
                 console.log("📊 Execute response:", quoteData);
 
-                result = await formatExecuteSuccessfulData(quoteData.receipt, quoteData.quote, buyTokenInfo, sellTokenInfo);
+                result = await formatExecuteSuccessfulData(
+                  quoteData.receipt,
+                  quoteData.quote,
+                  buyTokenInfo,
+                  sellTokenInfo
+                );
               } else {
                 result = `Error executing swap: ${executeResponse.statusText}`;
               }
@@ -744,7 +757,7 @@ export function ChatInterface({
                         {(message as any).functionResults.map((result: any, index: number) => (
                           <div key={index} className="text-xs">
                             <span className="font-black">{result.name}:</span>{" "}
-                            <div 
+                            <div
                               className="whitespace-pre-line mt-1"
                               dangerouslySetInnerHTML={{ __html: result.result }}
                             />
