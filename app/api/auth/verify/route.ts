@@ -11,14 +11,17 @@ const client = createPublicClient({
 // instead of storing nonces in memory
 function isValidNonce(nonce: string): boolean {
   try {
-    // Decode the nonce to get timestamp
-    const timestamp = parseInt(nonce.substring(0, 10), 16)
+    // Decode the nonce to get timestamp (first 8 hex chars)
+    const timestamp = parseInt(nonce.substring(0, 8), 16)
     const now = Math.floor(Date.now() / 1000)
+    
+    console.log('Validating nonce:', nonce, 'extracted timestamp:', timestamp, 'current time:', now, 'diff:', now - timestamp)
     
     // Allow nonces that are up to 10 minutes old
     const maxAge = 10 * 60 // 10 minutes
     return (now - timestamp) <= maxAge && (now - timestamp) >= 0
-  } catch {
+  } catch (error) {
+    console.log('Nonce validation error:', error)
     return false
   }
 }

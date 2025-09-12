@@ -5,9 +5,11 @@ import crypto from 'crypto'
 export async function GET() {
   try {
     // Create a nonce with timestamp prefix for serverless environments
-    const timestamp = Math.floor(Date.now() / 1000).toString(16).padStart(10, '0')
-    const randomBytes = crypto.randomBytes(11).toString('hex')
+    const timestamp = Math.floor(Date.now() / 1000).toString(16).padStart(8, '0')
+    const randomBytes = crypto.randomBytes(12).toString('hex')
     const nonce = timestamp + randomBytes
+    
+    console.log('Generated nonce:', nonce, 'timestamp:', timestamp, 'decimal:', Math.floor(Date.now() / 1000))
     
     return new NextResponse(nonce, {
       headers: { 'Content-Type': 'text/plain' }
