@@ -24,8 +24,6 @@ function AppContent() {
     }
   };
 
-
-
   return (
     <div className="h-screen bg-background text-foreground flex flex-col">
       {/* Top Header */}

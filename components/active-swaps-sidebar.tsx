@@ -120,25 +120,16 @@ export function ActivePermissionsSidebar({ userAddress, onClose }: ActivePermiss
   const handleRevoke = async (permission: any) => {
     setRevoking(permission.permissionHash || permission.id || "");
     try {
-      console.log("revoking permission")
+      console.log("revoking permission");
       const provider = createBaseAccountSDK({
         appName: "Intentswap",
         appChainIds: [8453],
         paymasterUrls: [process.env.NEXT_PUBLIC_PAYMASTER_URL!],
       }).getProvider();
 
-      const revokeCall = await prepareRevokeCallData(permission);
-      await provider.request({
-        method: "wallet_sendCalls",
-        params: [
-          {
-            chainId: 8453,
-            version: "2.0.0",
-            atomicRequired: true,
-            from: userAddress,
-            calls: [revokeCall],
-          },
-        ],
+      await requestRevoke({
+        provider,
+        permission,
       });
 
       console.log("revoke sucessful");
