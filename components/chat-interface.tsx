@@ -122,7 +122,7 @@ const formatPriceData = async (
 };
 
 const formatExecuteSuccessfulData = async (receipt: any, quote: any, buyTokenInfo: any, sellTokenInfo: any): Promise<string> => {
-  const explorerUrl = `https://explorer.base.org/tx/${receipt.transactionHash}`;
+  const explorerUrl = `https://basescan.org/tx/${receipt.transactionHash}`;
   const accountUrl = `https://account.base.app/activity`;
   
   let result = `✅ Swap Successful\n`;
