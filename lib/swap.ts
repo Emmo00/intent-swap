@@ -42,7 +42,7 @@ export async function getSwapPrice(sellToken: string, buyToken: string, sellAmou
   });
 
   const priceResponse = await fetch(
-    "https://api.0x.org/swap/permit2/price?" + priceParams.toString(),
+    "https://api.0x.org/swap/allowance-holder/price?" + priceParams.toString(),
     {
       headers,
     }
@@ -71,7 +71,7 @@ export async function getSwapQuote(
   });
 
   const quoteResponse = await fetch(
-    "https://api.0x.org/swap/permit2/quote?" + quoteParams.toString(),
+    "https://api.0x.org/swap/allowance-holder/quote?" + quoteParams.toString(),
     {
       headers,
     }
@@ -96,6 +96,38 @@ export async function approvePermit2TokenSpend(
   const PERMIT2_ADDRESS = spender;
   const approveSelector = "0x095ea7b3";
   const spenderAddress = PERMIT2_ADDRESS.slice(2).padStart(64, "0");
+  const maxApprovalAmount = "f".repeat(64); // Max uint256
+  const approveData = `${approveSelector}${spenderAddress}${maxApprovalAmount}`;
+
+  const approvalReceipt = await cdpClient.evm.sendUserOperation({
+    smartAccount: serverWallet.smartAccount!,
+    network: "base",
+    calls: [
+      {
+        to: tokenAddress as `0x${string}`,
+        data: approveData as `0x${string}`,
+      },
+    ],
+    paymasterUrl: process.env.PAYMASTER_URL,
+  });
+
+  return await cdpClient.evm.waitForUserOperation({
+    smartAccountAddress: serverWallet.smartAccount!.address,
+    userOpHash: approvalReceipt.userOpHash,
+  });
+}
+
+export async function approveAllowanceHolderSpend(
+  tokenAddress: `0x${string}`,
+  spender: `0x${string}`
+) {
+  const cdpClient = getCdpClient();
+  const serverWallet = await getServerWallet();
+
+  // First, approve AllowanceHolder contract to spend USDC
+  const ALLOWANCE_HOLDER_ADDRESS = spender;
+  const approveSelector = "0x095ea7b3";
+  const spenderAddress = ALLOWANCE_HOLDER_ADDRESS.slice(2).padStart(64, "0");
   const maxApprovalAmount = "f".repeat(64); // Max uint256
   const approveData = `${approveSelector}${spenderAddress}${maxApprovalAmount}`;
 

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { approvePermit2TokenSpend, getSwapQuote } from "../../../../lib/swap";
+import { approveAllowanceHolderSpend, getSwapQuote } from "../../../../lib/swap";
 import {
   createPublicClient,
   http,
@@ -10,6 +10,7 @@ import {
   size,
   Hex,
   concat,
+  encodeFunctionData,
 } from "viem";
 import { base } from "viem/chains";
 import { getCdpClient, getServerWallet } from "@/lib/cdp";
@@ -56,16 +57,20 @@ export async function POST(req: NextRequest) {
 
     // execute spend calls first
     const cdpClient = getCdpClient();
-    console.log("🔧 Sending user operation with spend calls:", spendCalls);
-    await cdpClient.evm.sendUserOperation({
-      smartAccount: serverWallet.smartAccount,
-      network: "base",
-      calls: spendCalls.map((call: any) => ({
-        to: call.to,
-        data: call.data,
-      })),
-      paymasterUrl: process.env.PAYMASTER_URL,
-    });
+    try {
+      console.log("🔧 Sending user operation with spend calls:", spendCalls);
+      await cdpClient.evm.sendUserOperation({
+        smartAccount: serverWallet.smartAccount,
+        network: "base",
+        calls: spendCalls.map((call: any) => ({
+          to: call.to,
+          data: call.data,
+        })),
+        paymasterUrl: process.env.PAYMASTER_URL,
+      });
+    } catch (e) {
+      console.error("❌ Error executing spend calls:", e);
+    }
 
     // get swap quote
     console.log("🔧 Fetching swap quote...");
@@ -73,43 +78,19 @@ export async function POST(req: NextRequest) {
       sellToken,
       buyToken,
       sellAmountInBaseUnits.toString(),
-      userAddress
+      serverWallet.smartAccount.address
     );
 
     console.log("swap quote", quote);
 
+    // check if taker needs to set an allowance for AllowanceHolder
     if (quote.issues.allowance !== null) {
-      // approve permit2 contract to spend token
-      const permit2ApprovalReceipt = await approvePermit2TokenSpend(
+      const allowanceHolderApprovalReceipt = await approveAllowanceHolderSpend(
         sellToken as `0x${string}`,
         quote.issues.allowance.spender as `0x${string}`
       );
 
-      console.log("✅ Permit2 approval transaction mined:", permit2ApprovalReceipt);
-    }
-
-    // sign permit2.eip712 returned from quote
-    let signature: `0x${string}` | undefined = undefined;
-
-    if (quote?.permit2?.eip712) {
-      signature = await serverWallet.walletClient.signTypedData(quote.permit2.eip712);
-      console.log("✅ Permit2 signed:", signature);
-    }
-
-    // append sig length and sig data to transaction.data
-    if (signature && quote?.transaction?.data) {
-      const signatureLengthInHex = numberToHex(size(signature), {
-        signed: false,
-        size: 32,
-      });
-
-      const transactionData = quote.transaction.data as Hex;
-      const sigLengthHex = signatureLengthInHex as Hex;
-      const sig = signature as Hex;
-
-      quote.transaction.data = concat([transactionData, sigLengthHex, sig]);
-    } else {
-      throw new Error("Failed to obtain signature or transaction data");
+      console.log("✅ AllowanceHolder approval transaction mined:", allowanceHolderApprovalReceipt);
     }
 
     // create swap transaction
@@ -121,6 +102,15 @@ export async function POST(req: NextRequest) {
           to: quote.transaction.to as `0x${string}`,
           data: quote.transaction.data,
         },
+        {
+          // transfer output tokens to userAddress
+          to: buyToken as `0x${string}`,
+          data: encodeFunctionData({
+            abi: erc20Abi,
+            functionName: "transfer",
+            args: [userAddress as `0x${string}`, quote.buyAmount as bigint],
+          }) as `0x${string}`,
+        },
       ],
       paymasterUrl: process.env.PAYMASTER_URL,
     });
@@ -130,6 +120,7 @@ export async function POST(req: NextRequest) {
     const receipt = await serverWallet.smartAccount.waitForUserOperation({
       userOpHash: swapTransaction.userOpHash,
     });
+    console.log("✅ Swap transaction receipt:", receipt);
 
     return NextResponse.json({ receipt, quote });
   } catch (error: any) {
