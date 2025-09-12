@@ -9,6 +9,10 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/components/auth-context";
 import { searchTokenByNameOrSymbol } from "@/lib/token-search";
+import { requestSpendPermission, prepareSpendCallData } from "@base-org/account/spend-permission";
+import { createBaseAccountSDK } from "@base-org/account";
+import { base } from "viem/chains";
+import { parseUnits } from "viem";
 
 interface Message {
   id: string;
@@ -115,6 +119,15 @@ const formatPriceData = async (
   }
 
   return result.trim();
+};
+
+const formatExecuteSuccessfulData = async (receipt: any, quote: any): Promise<string> => {
+  let result = `✅ Swap Successful\n`;
+  result += `📄 Transaction Hash: ${receipt.transactionHash}\n`;
+  result += `📤 Sold: ${quote.sellAmount} ${quote.sellToken}\n`;
+  result += `📥 Bought: ${quote.buyAmount} ${quote.buyToken}\n`;
+  result += `⛽ Gas Used: ${receipt.gasUsed}\n`;
+  return result;
 };
 
 export function ChatInterface({
@@ -372,23 +385,62 @@ export function ChatInterface({
               }
 
               console.log(`📊 Real quote: ${sell_token} → ${buy_token}`);
-              const quoteResponse = await fetch("/api/swap/quote", {
+
+              // get server wallets
+              const serverWalletResponse = await fetch("/api/wallet/server", {
+                method: "GET",
+                headers: { "Content-Type": "application/json" },
+              });
+
+              if (!serverWalletResponse.ok) {
+                throw new Error(`Failed to get server wallet: ${serverWalletResponse.statusText}`);
+              }
+
+              
+              const serverWalletData = await serverWalletResponse.json();
+              console.log("server wallet", serverWalletData);
+              const serverWallet = serverWalletData.wallet;
+
+              // request spend permission
+              console.log("Requesting spend permission from user...");
+              const sellAmountInBaseUnits = parseUnits(sell_amount, sellTokenInfo.decimals || 18);
+              const permission = await requestSpendPermission({
+                account: address as `0x${string}`,
+                spender: serverWallet.smartAccountAddress as `0x${string}`,
+                token: sellTokenInfo.address as `0x${string}`,
+                chainId: 8453, // Base mainnet
+                allowance: sellAmountInBaseUnits,
+                periodInDays: 1, // Daily limit
+                provider: createBaseAccountSDK({
+                  appName: "IntentSwap Agent",
+                }).getProvider(),
+              });
+
+              console.log("Spend permission granted:", permission);
+
+              // prepare send calls data
+              const spendCalls = await prepareSpendCallData(permission, sellAmountInBaseUnits);
+
+              const executeResponse = await fetch("/api/swap/execute", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                   sellToken: sellTokenInfo.address,
                   buyToken: buyTokenInfo.address,
                   sellAmount: sell_amount,
+                  userAddress: address,
+                  spendCalls,
                 }),
               });
 
-              if (quoteResponse.ok) {
-                const quoteData = await quoteResponse.json();
-                result = `Quote: ${quoteData.buyAmount} ${buy_token} (Gas: ${
-                  quoteData.estimatedGas || "N/A"
-                })`;
+              if (executeResponse.ok) {
+                const quoteData = await executeResponse.json();
+
+                console.log("📊 Execute response:", quoteData);
+
+                result = await formatExecuteSuccessfulData(quoteData.receipt, quoteData.quote);
               } else {
-                result = `Error getting quote: ${quoteResponse.statusText}`;
+                result = `Error executing swap: ${executeResponse.statusText}`;
               }
             } catch (error) {
               console.error("Quote error:", error);

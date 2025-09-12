@@ -66,7 +66,7 @@ export async function getSwapQuote(
     sellToken: sellToken,
     buyToken: buyToken,
     sellAmount: sellAmount.toString(),
-    takerAddress: userAddress,
+    taker: userAddress,
   });
 
   const quoteResponse = await fetch(

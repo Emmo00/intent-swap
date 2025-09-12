@@ -17,16 +17,19 @@ export async function getServerWallet() {
 
   let account;
   let smartAccount;
+  const serverWalletName = "intent-swap-wallet-1";
+
+  console.log("🔧 Setting up server wallet...", serverWalletName);
 
   try {
-    account = await cdp.evm.createAccount({ name: "intent-swap-wallet" });
+    account = await cdp.evm.createAccount({ name: serverWalletName });
     console.log("evm account created", account.address);
   } catch (error) {
     console.error("error creating evm account", error);
   }
 
   try {
-    account = await cdp.evm.getAccount({ name: "intent-swap-wallet" });
+    account = await cdp.evm.getAccount({ name: serverWalletName });
     console.log(`Retrieved EVM account: ${account.address}`);
   } catch (error) {
     console.log("error trying to retrieve evm account", error);
@@ -39,7 +42,7 @@ export async function getServerWallet() {
   try {
     smartAccount = await cdp.evm.createSmartAccount({
       owner: account,
-      name: "intent-swap-wallet",
+      name: serverWalletName,
     });
 
     console.log(`Created smart account: ${smartAccount.address}`);
@@ -48,7 +51,7 @@ export async function getServerWallet() {
   }
 
   try {
-    smartAccount = await cdp.evm.getSmartAccount({ name: "intent-swap-wallet", owner: account });
+    smartAccount = await cdp.evm.getSmartAccount({ name: serverWalletName, owner: account });
 
     console.log("retrieved smart account", smartAccount.address);
   } catch (error) {

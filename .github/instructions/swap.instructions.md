@@ -22,7 +22,7 @@ this flow is initiated after the user has specified the user's desired swap para
 
 - **Get Spend Permissions**: Frontend calls `requestSpendPermission` on their base account using the sdk with parameters: `{ account: user, spender: smartAccountAddress (server smart wallet account), token: sell_token, chainId: 8453, allowance: sell_amount (in base units), periodInDays: 1 }`.
 - Store returned permission JSON in `localStorage` (`spendPermission`).
-- after successful permission grant, call backend API `/api/swap/quote` with parameters: `{ sellToken: sell_token, buyToken: buy_token, sellAmount: sell_amount (formatted) }`.
+- after successful permission grant, call backend API `/api/swap/execute` with parameters: `{ sellToken: sell_token, buyToken: buy_token, sellAmount: sell_amount (formatted) }`.
 
 - Backend calls 0x API `/swap/permit2/quote` with the same parameters using the helper function in `lib/swap.ts`.
 
