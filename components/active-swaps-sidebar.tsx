@@ -72,7 +72,6 @@ export function ActivePermissionsSidebar({ userAddress, onClose }: ActivePermiss
         chainId: 8453,
         provider: createBaseAccountSDK({
           appName: "Intentswap",
-          paymasterUrls: [process.env.NEXT_PUBLIC_PAYMASTER_URL!],
         }).getProvider(),
       });
       setPermissions(perms);
@@ -97,7 +96,6 @@ export function ActivePermissionsSidebar({ userAddress, onClose }: ActivePermiss
           chainId: 8453,
           provider: createBaseAccountSDK({
             appName: "Intentswap",
-            paymasterUrls: [process.env.NEXT_PUBLIC_PAYMASTER_URL!],
           }).getProvider(),
         });
         setPermissions(perms);
@@ -124,7 +122,6 @@ export function ActivePermissionsSidebar({ userAddress, onClose }: ActivePermiss
       const provider = createBaseAccountSDK({
         appName: "Intentswap",
         appChainIds: [8453],
-        paymasterUrls: [process.env.NEXT_PUBLIC_PAYMASTER_URL!],
       }).getProvider();
 
       await requestRevoke({
