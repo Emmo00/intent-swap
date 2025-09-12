@@ -114,7 +114,7 @@ export function ChatHistory({ onSelectSession, currentSessionId }: ChatHistoryPr
       </div>
 
       {/* Sessions List */}
-      <ScrollArea className="flex-1">
+      <ScrollArea className="flex-1 h-0">
         <div className="p-2">
           {isLoading && (
             <div className="p-4 text-center">

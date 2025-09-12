@@ -73,7 +73,7 @@ function AppContent() {
       {/* Main Content Area */}
       <div className="flex flex-1 overflow-hidden relative">
         {/* Left Sidebar - Chat History (Desktop) */}
-        <div className="hidden md:block w-80 brutalist-border border-r-4 bg-card">
+        <div className="hidden md:flex w-80 brutalist-border border-r-4 bg-card flex-col h-full">
           <ChatHistory 
             onSelectSession={handleSessionSelect} 
             currentSessionId={currentSessionId}
@@ -82,9 +82,9 @@ function AppContent() {
 
         {/* Mobile Left Sidebar */}
         <div
-          className={`${leftSidebarOpen ? "translate-x-0" : "-translate-x-full"} md:hidden transition-transform duration-300 absolute z-10 h-full w-80 brutalist-border border-r-4 bg-card`}
+          className={`${leftSidebarOpen ? "translate-x-0" : "-translate-x-full"} md:hidden transition-transform duration-300 absolute z-10 h-full w-80 brutalist-border border-r-4 bg-card flex flex-col`}
         >
-          <div className="flex items-center justify-between p-3 brutalist-border border-b-4">
+          <div className="flex-shrink-0 flex items-center justify-between p-3 brutalist-border border-b-4">
             <div className="text-sm font-black">
               {leftSidebarContent === 'chat' ? 'CHAT_HISTORY' : 'ACTIVE_PERMISSIONS'}
             </div>
@@ -92,19 +92,21 @@ function AppContent() {
               <X className="h-4 w-4" />
             </Button>
           </div>
-          {leftSidebarContent === 'chat' ? (
-            <ChatHistory 
-              onSelectSession={handleSessionSelect} 
-              currentSessionId={currentSessionId}
-            />
-          ) : (
-            <ActivePermissionsSidebar 
-              userAddress={address || ''}
-              spenderAddress={process.env.NEXT_PUBLIC_INTENTSWAP_SPENDER || '0x0000000000000000000000000000000000000000'}
-              tokenAddress={process.env.NEXT_PUBLIC_USDC_BASE || '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913'}
-              onClose={() => setLeftSidebarOpen(false)} 
-            />
-          )}
+          <div className="flex-1 min-h-0">
+            {leftSidebarContent === 'chat' ? (
+              <ChatHistory 
+                onSelectSession={handleSessionSelect} 
+                currentSessionId={currentSessionId}
+              />
+            ) : (
+              <ActivePermissionsSidebar 
+                userAddress={address || ''}
+                spenderAddress={process.env.NEXT_PUBLIC_INTENTSWAP_SPENDER || '0x0000000000000000000000000000000000000000'}
+                tokenAddress={process.env.NEXT_PUBLIC_USDC_BASE || '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913'}
+                onClose={() => setLeftSidebarOpen(false)} 
+              />
+            )}
+          </div>
         </div>
 
         {/* Mobile overlay */}
