@@ -93,34 +93,57 @@ export async function POST(req: NextRequest) {
       console.log("✅ AllowanceHolder approval transaction mined:", allowanceHolderApprovalReceipt);
     }
 
-    // create swap transaction
-    const swapTransaction = await cdpClient.evm.sendUserOperation({
-      smartAccount: serverWallet.smartAccount,
-      network: "base",
-      calls: [
-        {
-          to: quote.transaction.to as `0x${string}`,
-          data: quote.transaction.data,
-        },
-        {
-          // transfer output tokens to userAddress
-          to: buyToken as `0x${string}`,
-          data: encodeFunctionData({
-            abi: erc20Abi,
-            functionName: "transfer",
-            args: [userAddress as `0x${string}`, quote.buyAmount as bigint],
-          }) as `0x${string}`,
-        },
-      ],
-      paymasterUrl: process.env.PAYMASTER_URL,
-    });
+    // create swap transaction with retry logic
+    let swapTransaction;
+    let receipt;
+    const maxRetries = 3;
+    
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        console.log(`🔧 Swap attempt ${attempt}/${maxRetries}...`);
+        
+        swapTransaction = await cdpClient.evm.sendUserOperation({
+          smartAccount: serverWallet.smartAccount,
+          network: "base",
+          calls: [
+            {
+              to: quote.transaction.to as `0x${string}`,
+              data: quote.transaction.data,
+            },
+            {
+              // transfer output tokens to userAddress
+              to: buyToken as `0x${string}`,
+              data: encodeFunctionData({
+                abi: erc20Abi,
+                functionName: "transfer",
+                args: [userAddress as `0x${string}`, quote.buyAmount as bigint],
+              }) as `0x${string}`,
+            },
+          ],
+          paymasterUrl: process.env.PAYMASTER_URL,
+        });
 
-    console.log("✅ Swap transaction mined:", swapTransaction);
+        console.log(`✅ Swap transaction sent (attempt ${attempt}):`, swapTransaction);
 
-    const receipt = await serverWallet.smartAccount.waitForUserOperation({
-      userOpHash: swapTransaction.userOpHash,
-    });
-    console.log("✅ Swap transaction receipt:", receipt);
+        receipt = await serverWallet.smartAccount.waitForUserOperation({
+          userOpHash: swapTransaction.userOpHash,
+        });
+        
+        console.log(`✅ Swap transaction receipt (attempt ${attempt}):`, receipt);
+        break; // Success, exit retry loop
+        
+      } catch (error) {
+        console.error(`❌ Swap attempt ${attempt}/${maxRetries} failed:`, error);
+        
+        if (attempt === maxRetries) {
+          console.error("❌ All swap attempts failed, throwing error");
+          throw error; // Re-throw on final attempt
+        } else {
+          console.log(`🔄 Retrying swap in 2 seconds... (attempt ${attempt + 1}/${maxRetries})`);
+          await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2 seconds before retry
+        }
+      }
+    }
 
     return NextResponse.json({ receipt, quote });
   } catch (error: any) {

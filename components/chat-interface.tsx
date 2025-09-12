@@ -415,7 +415,8 @@ export function ChatInterface({
                 token: sellTokenInfo.address as `0x${string}`,
                 chainId: 8453, // Base mainnet
                 allowance: sellAmountInBaseUnits,
-                periodInDays: 1, // Daily limit
+                periodInDays: 1, // Daily period as per SDK requirements
+                end: new Date(Date.now() + 60 * 5 * 1000), // 5 minutes from now
                 provider: createBaseAccountSDK({
                   appName: "IntentSwap Agent",
                 }).getProvider(),
