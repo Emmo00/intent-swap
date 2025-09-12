@@ -26,10 +26,12 @@ async function getTokenDecimals(tokenAddress: string): Promise<number> {
 
 export async function POST(req: NextRequest) {
   try {
-    const { sellToken, buyToken, sellAmount } = await req.json();
+    const { sellToken, buyToken, sellAmount, userAddress } = await req.json();
     if (!sellToken || !buyToken || !sellAmount) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
+
+    console.log("Received swap price request:", { sellToken, buyToken, sellAmount, userAddress });
 
     // Get the sell token decimals to convert sellAmount to base units
     const sellTokenDecimals = await getTokenDecimals(sellToken);
@@ -39,7 +41,7 @@ export async function POST(req: NextRequest) {
     
     console.log(`📊 Converting sell amount: ${sellAmount} -> ${sellAmountInBaseUnits.toString()} (${sellTokenDecimals} decimals)`);
     
-    const price = await getSwapPrice(sellToken, buyToken, sellAmountInBaseUnits.toString());
+    const price = await getSwapPrice(sellToken, buyToken, sellAmountInBaseUnits.toString(), userAddress);
     return NextResponse.json({
       buyAmount: price.buyAmount,
       minBuyAmount: price.minBuyAmount,

@@ -356,6 +356,7 @@ export function ChatInterface({
                   sellToken: sellTokenInfo.address,
                   buyToken: buyTokenInfo.address,
                   sellAmount: sell_amount,
+                  userAddress: address,
                 }),
               });
 

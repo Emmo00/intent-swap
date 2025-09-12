@@ -33,12 +33,13 @@ export function getERC20Contract(address: `0x${string}`) {
   });
 }
 
-export async function getSwapPrice(sellToken: string, buyToken: string, sellAmount: string) {
+export async function getSwapPrice(sellToken: string, buyToken: string, sellAmount: string, userAddress?: `0x${string}`) {
   const priceParams = new URLSearchParams({
     chainId: client.chain.id.toString(),
     sellToken: sellToken,
     buyToken: buyToken,
     sellAmount: sellAmount.toString(),
+    taker: userAddress || '', // Optional taker address
   });
 
   const priceResponse = await fetch(
