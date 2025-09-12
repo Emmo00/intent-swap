@@ -1,28 +1,30 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { Button } from "@/components/ui/button"
-import { ChatInterface } from "@/components/chat-interface"
-import { ChatHistory } from "@/components/chat-history"
-import { ActivePermissionsSidebar } from "@/components/active-swaps-sidebar"
-import { AuthProvider, useAuth } from "@/components/auth-context"
-import { SignInWithBaseButton, ConnectedButton } from "@/components/sign-in-with-base"
-import { Menu, X, MessageSquare, Activity } from "lucide-react"
+import { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { ChatInterface } from "@/components/chat-interface";
+import { ChatHistory } from "@/components/chat-history";
+import { ActivePermissionsSidebar } from "@/components/active-swaps-sidebar";
+import { AuthProvider, useAuth } from "@/components/auth-context";
+import { SignInWithBaseButton, ConnectedButton } from "@/components/sign-in-with-base";
+import { Menu, X, MessageSquare, Activity } from "lucide-react";
 
 function AppContent() {
-  const [leftSidebarOpen, setLeftSidebarOpen] = useState(false)
-  const [rightSidebarOpen, setRightSidebarOpen] = useState(false)
-  const [leftSidebarContent, setLeftSidebarContent] = useState<'chat' | 'permissions'>('chat')
-  const [currentSessionId, setCurrentSessionId] = useState<string>()
-  const { isConnected, address } = useAuth()
+  const [leftSidebarOpen, setLeftSidebarOpen] = useState(false);
+  const [rightSidebarOpen, setRightSidebarOpen] = useState(false);
+  const [leftSidebarContent, setLeftSidebarContent] = useState<"chat" | "permissions">("chat");
+  const [currentSessionId, setCurrentSessionId] = useState<string>();
+  const { isConnected, address } = useAuth();
 
   const handleSessionSelect = (sessionId: string) => {
-    setCurrentSessionId(sessionId)
+    setCurrentSessionId(sessionId);
     // Close mobile sidebar after selection
     if (window.innerWidth < 768) {
-      setLeftSidebarOpen(false)
+      setLeftSidebarOpen(false);
     }
-  }
+  };
+
+
 
   return (
     <div className="h-screen bg-background text-foreground flex flex-col">
@@ -31,26 +33,26 @@ function AppContent() {
         <div className="flex items-center gap-2 md:gap-4">
           {/* Mobile menu buttons */}
           <div className="flex items-center gap-1 md:hidden">
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              className="p-1" 
+            <Button
+              variant="ghost"
+              size="sm"
+              className="p-1"
               onClick={() => {
-                setLeftSidebarContent('chat')
-                setLeftSidebarOpen(!leftSidebarOpen)
-                setRightSidebarOpen(false)
+                setLeftSidebarContent("chat");
+                setLeftSidebarOpen(!leftSidebarOpen);
+                setRightSidebarOpen(false);
               }}
             >
               <MessageSquare className="h-4 w-4" />
             </Button>
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              className="p-1" 
+            <Button
+              variant="ghost"
+              size="sm"
+              className="p-1"
               onClick={() => {
-                setLeftSidebarContent('permissions')
-                setLeftSidebarOpen(!leftSidebarOpen)
-                setRightSidebarOpen(false)
+                setLeftSidebarContent("permissions");
+                setLeftSidebarOpen(!leftSidebarOpen);
+                setRightSidebarOpen(false);
               }}
             >
               <Activity className="h-4 w-4" />
@@ -58,7 +60,9 @@ function AppContent() {
           </div>
 
           <h1 className="text-lg md:text-xl font-black tracking-tight">INTENTSWAP</h1>
-          <div className="hidden sm:block text-xs font-mono text-muted-foreground">AI TRADING TERMINAL</div>
+          <div className="hidden sm:block text-xs font-mono text-muted-foreground">
+            AI TRADING TERMINAL
+          </div>
         </div>
 
         {isConnected ? (
@@ -74,36 +78,38 @@ function AppContent() {
       <div className="flex flex-1 overflow-hidden relative">
         {/* Left Sidebar - Chat History (Desktop) */}
         <div className="hidden md:flex w-80 brutalist-border border-r-4 bg-card flex-col h-full">
-          <ChatHistory 
-            onSelectSession={handleSessionSelect} 
-            currentSessionId={currentSessionId}
-          />
+          <ChatHistory onSelectSession={handleSessionSelect} currentSessionId={currentSessionId} />
         </div>
 
         {/* Mobile Left Sidebar */}
         <div
-          className={`${leftSidebarOpen ? "translate-x-0" : "-translate-x-full"} md:hidden transition-transform duration-300 absolute z-10 h-full w-80 brutalist-border border-r-4 bg-card flex flex-col`}
+          className={`${
+            leftSidebarOpen ? "translate-x-0" : "-translate-x-full"
+          } md:hidden transition-transform duration-300 absolute z-10 h-full w-80 brutalist-border border-r-4 bg-card flex flex-col`}
         >
           <div className="flex-shrink-0 flex items-center justify-between p-3 brutalist-border border-b-4">
             <div className="text-sm font-black">
-              {leftSidebarContent === 'chat' ? 'CHAT_HISTORY' : 'ACTIVE_PERMISSIONS'}
+              {leftSidebarContent === "chat" ? "CHAT_HISTORY" : "ACTIVE_PERMISSIONS"}
             </div>
-            <Button variant="ghost" size="sm" className="p-1" onClick={() => setLeftSidebarOpen(false)}>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="p-1"
+              onClick={() => setLeftSidebarOpen(false)}
+            >
               <X className="h-4 w-4" />
             </Button>
           </div>
           <div className="flex-1 min-h-0">
-            {leftSidebarContent === 'chat' ? (
-              <ChatHistory 
-                onSelectSession={handleSessionSelect} 
+            {leftSidebarContent === "chat" ? (
+              <ChatHistory
+                onSelectSession={handleSessionSelect}
                 currentSessionId={currentSessionId}
               />
             ) : (
-              <ActivePermissionsSidebar 
-                userAddress={address || ''}
-                spenderAddress={process.env.NEXT_PUBLIC_INTENTSWAP_SPENDER || '0x0000000000000000000000000000000000000000'}
-                tokenAddress={process.env.NEXT_PUBLIC_USDC_BASE || '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913'}
-                onClose={() => setLeftSidebarOpen(false)} 
+              <ActivePermissionsSidebar
+                userAddress={address || ""}
+                onClose={() => setLeftSidebarOpen(false)}
               />
             )}
           </div>
@@ -111,16 +117,16 @@ function AppContent() {
 
         {/* Mobile overlay */}
         {leftSidebarOpen && (
-          <div className="md:hidden absolute inset-0 bg-black/50 z-5" onClick={() => setLeftSidebarOpen(false)} />
+          <div
+            className="md:hidden absolute inset-0 bg-black/50 z-5"
+            onClick={() => setLeftSidebarOpen(false)}
+          />
         )}
 
         {/* Main Chat Area */}
         <div className="flex-1 flex flex-col min-w-0">
           {isConnected ? (
-            <ChatInterface 
-              sessionId={currentSessionId}
-              onSessionChange={setCurrentSessionId}
-            />
+            <ChatInterface sessionId={currentSessionId} onSessionChange={setCurrentSessionId} />
           ) : (
             <div className="flex-1 flex flex-col items-center justify-center p-8 space-y-6">
               <div className="text-center space-y-4">
@@ -129,24 +135,20 @@ function AppContent() {
                   Sign in with your Base account to start chatting with the AI swap agent.
                 </p>
               </div>
-              <SignInWithBaseButton size="lg">
-                SIGN IN WITH BASE
-              </SignInWithBaseButton>
+              <SignInWithBaseButton size="lg">SIGN IN WITH BASE</SignInWithBaseButton>
             </div>
           )}
         </div>
 
         {/* Right Sidebar - Active Swaps (Desktop) */}
         <div className="hidden md:block w-80 brutalist-border border-l-4 bg-card">
-          <ActivePermissionsSidebar 
-            userAddress={address || ''}
-            spenderAddress={process.env.NEXT_PUBLIC_INTENTSWAP_SPENDER || '0x0000000000000000000000000000000000000000'}
-            tokenAddress={process.env.NEXT_PUBLIC_USDC_BASE || '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913'}
+          <ActivePermissionsSidebar
+            userAddress={address || ""}
           />
         </div>
       </div>
     </div>
-  )
+  );
 }
 
 export default function AppPage() {
@@ -154,5 +156,5 @@ export default function AppPage() {
     <AuthProvider>
       <AppContent />
     </AuthProvider>
-  )
+  );
 }
