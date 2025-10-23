@@ -23,7 +23,7 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${GeistSans.variable} ${GeistMono.variable} antialiased`}>
       <body className="font-sans">
-        <Providers>{children}</Providers>
+        <Providers children={children} />
       </body>
     </html>
   );

@@ -5,16 +5,15 @@ import { Button } from "@/components/ui/button";
 import { ChatInterface } from "@/components/chat-interface";
 import { ChatHistory } from "@/components/chat-history";
 import { ActivePermissionsSidebar } from "@/components/active-swaps-sidebar";
-import { AuthProvider, useAuth } from "@/components/auth-context";
-import { SignInWithBaseButton, ConnectedButton } from "@/components/sign-in-with-base";
 import { Menu, X, MessageSquare, Activity } from "lucide-react";
+import {useAccount} from "wagmi";
 
-function AppContent() {
+export default function Page() {
   const [leftSidebarOpen, setLeftSidebarOpen] = useState(false);
   const [rightSidebarOpen, setRightSidebarOpen] = useState(false);
   const [leftSidebarContent, setLeftSidebarContent] = useState<"chat" | "permissions">("chat");
   const [currentSessionId, setCurrentSessionId] = useState<string>();
-  const { isConnected, address } = useAuth();
+  const { isConnected, address } = useAccount();
 
   const handleSessionSelect = (sessionId: string) => {
     setCurrentSessionId(sessionId);
@@ -146,13 +145,5 @@ function AppContent() {
         </div>
       </div>
     </div>
-  );
-}
-
-export default function AppPage() {
-  return (
-    <AuthProvider>
-      <AppContent />
-    </AuthProvider>
   );
 }

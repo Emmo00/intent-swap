@@ -7,10 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
-import { useAuth } from "@/components/auth-context";
+import { useAccount } from "wagmi";
 import { searchTokenByNameOrSymbol } from "@/lib/token-search";
-import { requestSpendPermission, prepareSpendCallData } from "@base-org/account/spend-permission";
-import { createBaseAccountSDK } from "@base-org/account";
 import { base } from "viem/chains";
 import { formatUnits, parseUnits } from "viem";
 
@@ -148,7 +146,7 @@ export function ChatInterface({
   sessionId: propSessionId,
   onSessionChange,
 }: ChatInterfaceProps = {}) {
-  const { isConnected, address } = useAuth();
+  const { isConnected, address } = useAccount();
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);

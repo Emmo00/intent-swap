@@ -5,16 +5,6 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { X } from "lucide-react";
-import {
-  fetchPermissions,
-  fetchPermission,
-  getPermissionStatus,
-  prepareSpendCallData,
-  requestSpendPermission,
-  requestRevoke,
-  prepareRevokeCallData,
-} from "@base-org/account/spend-permission";
-
 import { createBaseAccountSDK } from "@base-org/account";
 import { chainConfig } from "viem/zksync";
 
