@@ -7,7 +7,12 @@ import { Providers } from "./providers";
 
 export const metadata: Metadata = {
   title: "IntentSwap - Swap crypto with just words",
-  description: "Grant SpendPermissions once. Our AI agent executes swaps for you.",
+  description: "An app to swap tokens using intent",
+  manifest: "/site.webmanifest",
+  icons: {
+    icon: "/favicon.ico",
+    apple: "/apple-touch-icon.png",
+  },
 };
 
 export default function RootLayout({
@@ -18,9 +23,7 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${GeistSans.variable} ${GeistMono.variable} antialiased`}>
       <body className="font-sans">
-        <Providers>
-          {children}
-        </Providers>
+        <Providers>{children}</Providers>
       </body>
     </html>
   );
