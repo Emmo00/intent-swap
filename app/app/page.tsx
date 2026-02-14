@@ -8,7 +8,6 @@ import { ActivePermissionsSidebar } from "@/components/active-swaps-sidebar";
 import ConnectWalletButton from "@/components/connect-wallet-button";
 import { X, MessageSquare, Activity } from "lucide-react";
 import { useAccount } from "wagmi";
-import { useEffect } from "react";
 
 export default function Page() {
   const [leftSidebarOpen, setLeftSidebarOpen] = useState(false);

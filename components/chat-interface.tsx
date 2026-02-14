@@ -446,7 +446,7 @@ export function ChatInterface({
                 chain: base,
                 to: quoteData.transaction.to as `0x${string}`,
                 data: txData,
-                value: quoteData.transaction.value ? BigInt(quoteData.transaction.value) : 0n,
+                value: quoteData.transaction.value ? BigInt(quoteData.transaction.value) : BigInt(0),
                 gas: quoteData.transaction.gas ? BigInt(quoteData.transaction.gas) : undefined,
                 gasPrice: quoteData.transaction.gasPrice ? BigInt(quoteData.transaction.gasPrice) : undefined,
               });
