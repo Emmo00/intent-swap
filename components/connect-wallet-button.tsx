@@ -1,5 +1,7 @@
 "use client";
 
-export default function ConnectButton({ title }: { title?: string }) {
-  return <appkit-button namespace="eip155">{title || "CONNECT WALLET"}</appkit-button>;
+import { ConnectButton } from '@rainbow-me/rainbowkit'
+
+export default function ConnectWalletButton({ title }: { title?: string }) {
+  return <ConnectButton label={title || 'CONNECT WALLET'} />
 }

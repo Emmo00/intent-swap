@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getPermit2Price } from '@/lib/swap'
+import { getPermit2Quote } from '@/lib/swap'
 import { createPublicClient, erc20Abi, getContract, http, parseUnits } from 'viem'
 import { base } from 'viem/chains'
 
@@ -27,25 +27,24 @@ async function getTokenDecimals(tokenAddress: string): Promise<number> {
 export async function POST(req: NextRequest) {
   try {
     const { sellToken, buyToken, sellAmount, userAddress } = await req.json()
-    if (!sellToken || !buyToken || !sellAmount) {
+
+    if (!sellToken || !buyToken || !sellAmount || !userAddress) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
     }
-
-    console.log('Received swap price request:', { sellToken, buyToken, sellAmount, userAddress })
 
     const sellTokenDecimals = await getTokenDecimals(sellToken)
     const sellAmountInBaseUnits = parseUnits(sellAmount.toString(), sellTokenDecimals)
 
-    const price = await getPermit2Price({
+    const quote = await getPermit2Quote({
       sellToken,
       buyToken,
       sellAmount: sellAmountInBaseUnits.toString(),
       taker: userAddress,
     })
 
-    return NextResponse.json(price)
-  } catch (error: any) {
-    console.error('❌ /api/swap/price error:', error)
-    return NextResponse.json({ error: 'Failed to fetch swap price' }, { status: 500 })
+    return NextResponse.json(quote)
+  } catch (error) {
+    console.error('❌ /api/swap/quote error:', error)
+    return NextResponse.json({ error: 'Failed to fetch swap quote' }, { status: 500 })
   }
 }

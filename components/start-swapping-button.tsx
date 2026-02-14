@@ -2,21 +2,15 @@
 
 import { Button } from "@/components/ui/button";
 import { useAccount } from "wagmi";
-import { useAppKit } from "@reown/appkit/react";
+import { useConnectModal } from "@rainbow-me/rainbowkit";
 
 export default function StartSwappingButton() {
   const { isConnected, isConnecting } = useAccount();
-  const { open, close } = useAppKit();
+  const { openConnectModal } = useConnectModal();
 
   const handleStartSwapping = async () => {
     if (!isConnected) {
-      try {
-        await open({ namespace: "eip155" });
-        // After successful sign-in, redirect to app
-        window.location.href = "/app";
-      } catch (error) {
-        console.error("Sign in failed:", error);
-      }
+      openConnectModal?.();
     } else {
       // Already connected, go to app
       window.location.href = "/app";

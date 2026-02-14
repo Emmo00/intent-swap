@@ -1,49 +1,39 @@
 'use client';
 
-import { wagmiAdapter, projectId } from '@/config'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { createAppKit } from '@reown/appkit/react'
-import { mainnet, arbitrum } from '@reown/appkit/networks'
+import '@rainbow-me/rainbowkit/styles.css'
+
+import { queryClient } from '@/config'
+import { RainbowKitProvider, getDefaultConfig } from '@rainbow-me/rainbowkit'
+import { QueryClientProvider } from '@tanstack/react-query'
 import React, { type ReactNode } from 'react'
-import { cookieToInitialState, WagmiProvider, type Config } from 'wagmi'
+import { WagmiProvider, http } from 'wagmi'
+import { base } from 'viem/chains'
 
-if (!projectId) {
-  throw new Error('Project ID is not defined')
+const walletConnectProjectId =
+  process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || process.env.NEXT_PUBLIC_REOWN_PROJECT_ID
+
+if (!walletConnectProjectId) {
+  throw new Error('WalletConnect project id missing: set NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID')
 }
 
-const url = process.env.NEXT_PUBLIC_URL;
-
-if (!url) {
-  throw new Error('NEXT_PUBLIC_URL is not defined');
-}
-
-
-// Set up metadata
-const metadata = {
-  name: 'intent-swap',
-  description: 'An app to swap tokens using intent',
-  url,
-  icons: [`${url}/apple-touch-icon.png`],
-}
-
-const modal = createAppKit({
-  adapters: [wagmiAdapter],
-  projectId,
-  networks: [mainnet, arbitrum],
-  defaultNetwork: mainnet,
-  metadata: metadata,
-  features: {
-    analytics: true // Optional - defaults to your Cloud configuration
-  }
+const wagmiConfig = getDefaultConfig({
+  appName: 'intent-swap',
+  projectId: walletConnectProjectId,
+  chains: [base],
+  transports: {
+    [base.id]: http(),
+  },
+  ssr: true,
 })
-
 
 export function Providers(props: { children: ReactNode }) {
   return (
-    <WagmiProvider config={wagmiAdapter.wagmiConfig as Config}>
-      <QueryClientProvider client={new QueryClient()}>
-        {props.children}
+    <WagmiProvider config={wagmiConfig}>
+      <QueryClientProvider client={queryClient}>
+        <RainbowKitProvider>
+          {props.children}
+        </RainbowKitProvider>
       </QueryClientProvider>
     </WagmiProvider>
-  );
+  )
 }

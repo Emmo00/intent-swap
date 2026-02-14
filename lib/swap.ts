@@ -1,151 +1,64 @@
-import { base } from "viem/chains";
-import {
-  createWalletClient,
-  http,
-  getContract,
-  erc20Abi,
-  parseUnits,
-  maxUint256,
-  publicActions,
-} from "viem";
-import { getCdpClient, getServerWallet } from "./cdp";
+import { base } from "viem/chains"
 
-const { ZERO_EX_API_KEY } = process.env;
+const { ZERO_EX_API_KEY } = process.env
 
 if (!ZERO_EX_API_KEY) {
-  throw new Error("Missing ZERO_EX_API_KEY in environment variables");
+  throw new Error("Missing ZERO_EX_API_KEY in environment variables")
 }
 
-// fetch headers
 const headers = new Headers({
   "Content-Type": "application/json",
   "0x-api-key": ZERO_EX_API_KEY,
   "0x-version": "v2",
-});
+})
 
-const client = createWalletClient({ chain: base, transport: http() });
+const baseChainId = base.id.toString()
 
-export function getERC20Contract(address: `0x${string}`) {
-  return getContract({
-    address,
-    abi: erc20Abi,
-    client,
-  });
+type SwapRequest = {
+  sellToken: string
+  buyToken: string
+  sellAmount: string
+  taker?: `0x${string}` | string
 }
 
-export async function getSwapPrice(sellToken: string, buyToken: string, sellAmount: string, userAddress?: `0x${string}`) {
-  const priceParams = new URLSearchParams({
-    chainId: client.chain.id.toString(),
-    sellToken: sellToken,
-    buyToken: buyToken,
-    sellAmount: sellAmount.toString(),
-    taker: userAddress || '', // Optional taker address
-  });
+export async function getPermit2Price({ sellToken, buyToken, sellAmount, taker }: SwapRequest) {
+  const params = new URLSearchParams({
+    chainId: baseChainId,
+    sellToken,
+    buyToken,
+    sellAmount,
+  })
 
-  const priceResponse = await fetch(
-    "https://api.0x.org/swap/allowance-holder/price?" + priceParams.toString(),
-    {
-      headers,
-    }
-  );
+  if (taker) params.set('taker', taker)
 
-  if (!priceResponse.ok) {
-    throw new Error(`Failed to fetch price: ${await priceResponse.text()}`);
+  const res = await fetch(`https://api.0x.org/swap/permit2/price?${params.toString()}`, {
+    headers,
+  })
+
+  if (!res.ok) {
+    throw new Error(`Failed to fetch price: ${await res.text()}`)
   }
 
-  const priceData = await priceResponse.json();
-  return priceData;
+  return res.json()
 }
 
-export async function getSwapQuote(
-  sellToken: string,
-  buyToken: string,
-  sellAmount: string,
-  userAddress: `0x${string}`
-) {
-  const quoteParams = new URLSearchParams({
-    chainId: client.chain.id.toString(),
-    sellToken: sellToken,
-    buyToken: buyToken,
-    sellAmount: sellAmount.toString(),
-    taker: userAddress,
-  });
+export async function getPermit2Quote({ sellToken, buyToken, sellAmount, taker }: SwapRequest) {
+  const params = new URLSearchParams({
+    chainId: baseChainId,
+    sellToken,
+    buyToken,
+    sellAmount,
+  })
 
-  const quoteResponse = await fetch(
-    "https://api.0x.org/swap/allowance-holder/quote?" + quoteParams.toString(),
-    {
-      headers,
-    }
-  );
+  if (taker) params.set('taker', taker)
 
-  if (!quoteResponse.ok) {
-    throw new Error(`Failed to fetch quote: ${await quoteResponse.text()}`);
+  const res = await fetch(`https://api.0x.org/swap/permit2/quote?${params.toString()}`, {
+    headers,
+  })
+
+  if (!res.ok) {
+    throw new Error(`Failed to fetch quote: ${await res.text()}`)
   }
 
-  const quoteData = await quoteResponse.json();
-  return quoteData;
-}
-
-export async function approvePermit2TokenSpend(
-  tokenAddress: `0x${string}`,
-  spender: `0x${string}`
-) {
-  const cdpClient = getCdpClient();
-  const serverWallet = await getServerWallet();
-
-  // First, approve Permit2 contract to spend USDC
-  const PERMIT2_ADDRESS = spender;
-  const approveSelector = "0x095ea7b3";
-  const spenderAddress = PERMIT2_ADDRESS.slice(2).padStart(64, "0");
-  const maxApprovalAmount = "f".repeat(64); // Max uint256
-  const approveData = `${approveSelector}${spenderAddress}${maxApprovalAmount}`;
-
-  const approvalReceipt = await cdpClient.evm.sendUserOperation({
-    smartAccount: serverWallet.smartAccount!,
-    network: "base",
-    calls: [
-      {
-        to: tokenAddress as `0x${string}`,
-        data: approveData as `0x${string}`,
-      },
-    ],
-    paymasterUrl: process.env.PAYMASTER_URL,
-  });
-
-  return await cdpClient.evm.waitForUserOperation({
-    smartAccountAddress: serverWallet.smartAccount!.address,
-    userOpHash: approvalReceipt.userOpHash,
-  });
-}
-
-export async function approveAllowanceHolderSpend(
-  tokenAddress: `0x${string}`,
-  spender: `0x${string}`
-) {
-  const cdpClient = getCdpClient();
-  const serverWallet = await getServerWallet();
-
-  // First, approve AllowanceHolder contract to spend USDC
-  const ALLOWANCE_HOLDER_ADDRESS = spender;
-  const approveSelector = "0x095ea7b3";
-  const spenderAddress = ALLOWANCE_HOLDER_ADDRESS.slice(2).padStart(64, "0");
-  const maxApprovalAmount = "f".repeat(64); // Max uint256
-  const approveData = `${approveSelector}${spenderAddress}${maxApprovalAmount}`;
-
-  const approvalReceipt = await cdpClient.evm.sendUserOperation({
-    smartAccount: serverWallet.smartAccount!,
-    network: "base",
-    calls: [
-      {
-        to: tokenAddress as `0x${string}`,
-        data: approveData as `0x${string}`,
-      },
-    ],
-    paymasterUrl: process.env.PAYMASTER_URL,
-  });
-
-  return await cdpClient.evm.waitForUserOperation({
-    smartAccountAddress: serverWallet.smartAccount!.address,
-    userOpHash: approvalReceipt.userOpHash,
-  });
+  return res.json()
 }

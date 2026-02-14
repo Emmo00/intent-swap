@@ -5,8 +5,10 @@ import { Button } from "@/components/ui/button";
 import { ChatInterface } from "@/components/chat-interface";
 import { ChatHistory } from "@/components/chat-history";
 import { ActivePermissionsSidebar } from "@/components/active-swaps-sidebar";
-import { Menu, X, MessageSquare, Activity } from "lucide-react";
-import {useAccount} from "wagmi";
+import ConnectWalletButton from "@/components/connect-wallet-button";
+import { X, MessageSquare, Activity } from "lucide-react";
+import { useAccount } from "wagmi";
+import { useEffect } from "react";
 
 export default function Page() {
   const [leftSidebarOpen, setLeftSidebarOpen] = useState(false);
@@ -14,6 +16,25 @@ export default function Page() {
   const [leftSidebarContent, setLeftSidebarContent] = useState<"chat" | "permissions">("chat");
   const [currentSessionId, setCurrentSessionId] = useState<string>();
   const { isConnected, address } = useAccount();
+
+  // Establish a simple session cookie once a wallet is connected
+  useEffect(() => {
+    const ensureSession = async () => {
+      if (!isConnected || !address) return;
+      try {
+        await fetch("/api/auth/verify", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ address }),
+        });
+      } catch (err) {
+        console.error("Failed to create session", err);
+      }
+    };
+
+    void ensureSession();
+  }, [isConnected, address]);
 
   const handleSessionSelect = (sessionId: string) => {
     setCurrentSessionId(sessionId);
@@ -62,13 +83,7 @@ export default function Page() {
           </div>
         </div>
 
-        {isConnected ? (
-          <ConnectedButton />
-        ) : (
-          <SignInWithBaseButton size="sm" variant="outline">
-            CONNECT WALLET
-          </SignInWithBaseButton>
-        )}
+        <ConnectWalletButton title={isConnected ? undefined : "CONNECT WALLET"} />
       </header>
 
       {/* Main Content Area */}
@@ -129,10 +144,10 @@ export default function Page() {
               <div className="text-center space-y-4">
                 <h2 className="text-2xl md:text-3xl font-black">CONNECT TO START SWAPPING</h2>
                 <p className="font-mono text-muted-foreground max-w-md">
-                  Sign in with your Base account to start chatting with the AI swap agent.
+                  Connect a wallet on Base to start chatting with the AI swap agent.
                 </p>
               </div>
-              <SignInWithBaseButton size="lg">SIGN IN WITH BASE</SignInWithBaseButton>
+              <ConnectWalletButton title="CONNECT WALLET" />
             </div>
           )}
         </div>

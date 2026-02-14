@@ -7,10 +7,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
-import { useAccount } from "wagmi";
+import { useAccount, useChainId, useSwitchChain, useWalletClient } from "wagmi";
 import { searchTokenByNameOrSymbol } from "@/lib/token-search";
 import { base } from "viem/chains";
-import { formatUnits, parseUnits } from "viem";
+import { concat, formatUnits, numberToHex, size } from "viem";
 
 interface Message {
   id: string;
@@ -127,19 +127,22 @@ const formatExecuteSuccessfulData = async (
 ): Promise<string> => {
   const explorerUrl = `https://basescan.org/tx/${receipt.transactionHash}`;
   const accountUrl = `https://account.base.app/activity`;
+  const buyAmount = BigInt(quote.buyAmount);
+  const sellAmount = BigInt(quote.sellAmount);
 
   let result = `✅ Swap Successful\n`;
   result += `📄 Transaction Hash: ${receipt.transactionHash}\n`;
-  result += `📤 Sold: ${formatUnits(quote.sellAmount, sellTokenInfo.decimals)} ${
-    sellTokenInfo.symbol
-  }\n`;
-  result += `📥 Bought: ${formatUnits(quote.buyAmount, buyTokenInfo.decimals)} ${
-    buyTokenInfo.symbol
-  }\n`;
+  result += `📤 Sold: ${formatUnits(sellAmount, sellTokenInfo.decimals)} ${sellTokenInfo.symbol}\n`;
+  result += `📥 Bought: ${formatUnits(buyAmount, buyTokenInfo.decimals)} ${buyTokenInfo.symbol}\n`;
   result += "\n";
   result += `<a href="${explorerUrl}" target="_blank" rel="noopener noreferrer" style="color: #1e40af; text-decoration: none; font-weight: bold;">🔗 View on Base Explorer</a>\n`;
   result += `<a href="${accountUrl}" target="_blank" rel="noopener noreferrer" style="color: #6d28d9; text-decoration: none; font-weight: bold;">📊 View Account Activities</a>`;
   return result;
+};
+
+const appendPermitSignature = (txData: `0x${string}`, signature: `0x${string}`): `0x${string}` => {
+  const sigLengthHex = numberToHex(size(signature), { signed: false, size: 32 }) as `0x${string}`;
+  return concat([txData, sigLengthHex, signature]) as `0x${string}`;
 };
 
 export function ChatInterface({
@@ -147,6 +150,9 @@ export function ChatInterface({
   onSessionChange,
 }: ChatInterfaceProps = {}) {
   const { isConnected, address } = useAccount();
+  const chainId = useChainId();
+  const { switchChainAsync } = useSwitchChain();
+  const { data: walletClient } = useWalletClient();
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
@@ -397,44 +403,17 @@ export function ChatInterface({
                 throw new Error(`Buy token not found: ${buy_token}`);
               }
 
-              console.log(`📊 Real quote: ${sell_token} → ${buy_token}`);
-
-              // get server wallets
-              const serverWalletResponse = await fetch("/api/wallet/server", {
-                method: "GET",
-                headers: { "Content-Type": "application/json" },
-              });
-
-              if (!serverWalletResponse.ok) {
-                throw new Error(`Failed to get server wallet: ${serverWalletResponse.statusText}`);
+              if (!walletClient || !address) {
+                throw new Error("Connect a wallet before swapping");
               }
 
-              const serverWalletData = await serverWalletResponse.json();
-              console.log("server wallet", serverWalletData);
-              const serverWallet = serverWalletData.wallet;
+              if (chainId !== base.id && switchChainAsync) {
+                await switchChainAsync({ chainId: base.id });
+              }
 
-              // request spend permission
-              console.log("Requesting spend permission from user...");
-              const sellAmountInBaseUnits = parseUnits(sell_amount, sellTokenInfo.decimals || 18);
-              const permission = await requestSpendPermission({
-                account: address as `0x${string}`,
-                spender: serverWallet.smartAccountAddress as `0x${string}`,
-                token: sellTokenInfo.address as `0x${string}`,
-                chainId: 8453, // Base mainnet
-                allowance: sellAmountInBaseUnits,
-                periodInDays: 1, // Daily period as per SDK requirements
-                end: new Date(Date.now() + 60 * 5 * 1000), // 5 minutes from now
-                provider: createBaseAccountSDK({
-                  appName: "IntentSwap Agent",
-                }).getProvider(),
-              });
+              console.log(`📊 Fetching quote for ${sell_token} → ${buy_token}`);
 
-              console.log("Spend permission granted:", permission);
-
-              // prepare send calls data
-              const spendCalls = await prepareSpendCallData(permission, sellAmountInBaseUnits);
-
-              const executeResponse = await fetch("/api/swap/execute", {
+              const quoteResponse = await fetch("/api/swap/quote", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -442,24 +421,55 @@ export function ChatInterface({
                   buyToken: buyTokenInfo.address,
                   sellAmount: sell_amount,
                   userAddress: address,
-                  spendCalls,
                 }),
               });
 
-              if (executeResponse.ok) {
-                const quoteData = await executeResponse.json();
-
-                console.log("📊 Execute response:", quoteData);
-
-                result = await formatExecuteSuccessfulData(
-                  quoteData.receipt,
-                  quoteData.quote,
-                  buyTokenInfo,
-                  sellTokenInfo
-                );
-              } else {
-                result = `Error executing swap: ${executeResponse.statusText}`;
+              if (!quoteResponse.ok) {
+                const errorBody = await quoteResponse.text();
+                throw new Error(`Quote failed: ${quoteResponse.statusText} ${errorBody}`);
               }
+
+              const quoteData = await quoteResponse.json();
+
+              let txData = quoteData?.transaction?.data as `0x${string}`;
+              if (!txData || !quoteData?.transaction?.to) {
+                throw new Error("Quote missing transaction data");
+              }
+
+              if (quoteData?.permit2?.eip712) {
+                const signature = (await walletClient.signTypedData(quoteData.permit2.eip712)) as `0x${string}`;
+                txData = appendPermitSignature(txData, signature);
+              }
+
+              const signedTx = await walletClient.signTransaction({
+                account: walletClient.account!,
+                chain: base,
+                to: quoteData.transaction.to as `0x${string}`,
+                data: txData,
+                value: quoteData.transaction.value ? BigInt(quoteData.transaction.value) : 0n,
+                gas: quoteData.transaction.gas ? BigInt(quoteData.transaction.gas) : undefined,
+                gasPrice: quoteData.transaction.gasPrice ? BigInt(quoteData.transaction.gasPrice) : undefined,
+              });
+
+              const executeResponse = await fetch("/api/swap/execute", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ signedTransaction: signedTx }),
+              });
+
+              if (!executeResponse.ok) {
+                const errorBody = await executeResponse.text();
+                throw new Error(`Swap submission failed: ${executeResponse.statusText} ${errorBody}`);
+              }
+
+              const execution = await executeResponse.json();
+
+              result = await formatExecuteSuccessfulData(
+                execution.receipt,
+                quoteData,
+                buyTokenInfo,
+                sellTokenInfo
+              );
             } catch (error) {
               console.error("Quote error:", error);
               result = `Error getting quote: ${
