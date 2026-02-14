@@ -1,5 +1,5 @@
 export interface ChatMessage {
-  role: "user" | "model" | "system";
+  role: "user" | "model" | "system" | "tool";
   content: string;
 }
 
@@ -14,7 +14,7 @@ export interface ChatSession {
 
 export interface ChatRequest {
   sessionId: string
-  role: 'user' | 'model' | 'system'
+  role: 'user' | 'model' | 'system' | 'tool'
   message: string
 }
 

@@ -506,7 +506,7 @@ export function ChatInterface({
   }, []);
 
   const callChatAPI = useCallback(
-    async (message: string, role: "user" | "system" = "user") => {
+    async (message: string, role: "user" | "system" | "tool" = "user") => {
       const response = await fetch("/api/agent/chat", {
         method: "POST",
         headers: {
@@ -578,7 +578,9 @@ export function ChatInterface({
           const functionResults = await handleFunctionCalls(apiResponse.functionCalls);
           const resultsMessage = functionResults.map((r) => `${r.name}: ${r.result}`).join("\n");
 
-          const followupResponse = await callChatAPI(resultsMessage, "system");
+          const followupResponse = await callChatAPI(resultsMessage, "tool");
+
+          console.log("Follow-up response after function calls:", followupResponse);
 
           const followupContent =
             followupResponse.success &&
@@ -633,7 +635,7 @@ export function ChatInterface({
             // Send function results back to agent as system message
             const resultsMessage = functionResults.map((r) => `${r.name}: ${r.result}`).join("\n");
 
-            const followupResponse = await callChatAPI(resultsMessage, "system");
+            const followupResponse = await callChatAPI(resultsMessage, "tool");
 
             if (
               followupResponse.success &&

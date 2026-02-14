@@ -8,8 +8,37 @@ const MAX_CONTEXT_MESSAGES: number = 8
 
 interface ChatRequest {
   sessionId: string
-  role: 'user' | 'model' | 'system'
+  role: 'user' | 'model' | 'system' | 'tool'
   message: string
+}
+
+const TOOL_RESULT_PREFIX = `Here is the result of the function call requested:`
+
+// Normalize a single message for Gemini (supports only 'user' | 'model')
+function normalizeMessageForGemini(msg: ChatMessage): ChatMessage | null {
+  const content = msg.content
+  switch (msg.role) {
+    case 'user':
+      return { role: 'user', content }
+    case 'model':
+    case 'assistant':
+    case 'system':
+      return { role: 'model', content }
+    case 'tool':
+      return {
+        role: 'user',
+        content: `${TOOL_RESULT_PREFIX}\n\n${content}\n\nUsing this information, provide the final response to the user now.`
+      }
+    default:
+      return null
+  }
+}
+
+// Normalize an array of messages, dropping unsupported roles
+function normalizeConversation(messages: ChatMessage[]): ChatMessage[] {
+  return messages
+    .map(normalizeMessageForGemini)
+    .filter((m): m is ChatMessage => Boolean(m))
 }
 
 // Helper function to get recent messages for AI context
@@ -62,9 +91,9 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate role
-    if (!['user', 'model', 'system'].includes(role)) {
+    if (!['user', 'model', 'system', 'tool'].includes(role)) {
       return NextResponse.json(
-        { error: 'Invalid role. Must be "user", "model", or "system"' },
+        { error: 'Invalid role. Must be "user", "model", "system", or "tool"' },
         { status: 400 }
       )
     }
@@ -85,22 +114,23 @@ export async function POST(request: NextRequest) {
     }
 
 
-    if (role === 'model' || role === 'system') {
-      // Pass model/system message along with chat history, store and return the response
+    if (role === 'model' || role === 'system' || role === 'tool') {
+      // Pass model/system/tool message along with chat history, store and return the response
       try {
         // Get current conversation history
-        const messages = await chatDatabase.getMessages(sessionId);
-        // Get recent messages for AI context
-        const recentMessages = getRecentMessages(messages);
-        console.log(`🧠 Using ${recentMessages.length} out of ${messages.length} messages for AI context`);
-        
-        // Convert 'system' to 'model' for agent, but keep original for storage
-        const agentMessages: ChatMessage[] = recentMessages.map((msg) =>
-          msg.role === 'system' ? { ...msg, role: 'model' } : msg
-        );
-        // Add the new message as 'model' for agent
-        agentMessages.push({ role: 'model', content: message });
-        const aiResponse = await generateChatResponse(agentMessages);
+        const messages = await chatDatabase.getMessages(sessionId)
+        const recentMessages = getRecentMessages(messages)
+        console.log(`🧠 Using ${recentMessages.length} out of ${messages.length} messages for AI context`)
+
+        const normalizedHistory = normalizeConversation(recentMessages)
+
+        // Normalize incoming tool/system/model message for Gemini
+        const normalizedIncoming = normalizeMessageForGemini({ role, content: message } as ChatMessage)
+        const agentMessages: ChatMessage[] = normalizedIncoming
+          ? [...normalizedHistory, normalizedIncoming]
+          : normalizedHistory
+
+        const aiResponse = await generateChatResponse(agentMessages)
         let aiResponseText = '';
         if (aiResponse.candidates?.[0]?.content?.parts?.[0]?.text) {
           aiResponseText = aiResponse.candidates[0].content.parts[0].text;
@@ -116,13 +146,14 @@ export async function POST(request: NextRequest) {
         const aiMessage: ChatMessage = {
           role: 'model',
           content: aiResponseText
-        };
-        // Store the original message (convert system to model for database)
-        const messageToStore: ChatMessage = {
-          role: role === 'system' ? 'model' as const : role as 'user' | 'model',
+        }
+
+        // Store the incoming message normalized for persistence
+        const messageToStore = normalizeMessageForGemini({ role, content: message } as ChatMessage) ?? {
+          role: 'user',
           content: message
-        };
-        await chatDatabase.addMessage(sessionId, messageToStore);
+        }
+        await chatDatabase.addMessage(sessionId, messageToStore)
         // Store AI response in database
         await chatDatabase.addMessage(sessionId, aiMessage);
         console.log(`✅ Stored AI response for session ${sessionId}`);
@@ -165,9 +196,11 @@ export async function POST(request: NextRequest) {
       const newMessage: ChatMessage = {
         role: (role as string) === 'system' ? 'model' as const : role as 'user' | 'model',
         content: message
-      };
-      // Store the user/model message in database
-      await chatDatabase.addMessage(sessionId, newMessage);
+      }
+
+      // Store normalized version for consistency
+      const normalizedNewMessage = normalizeMessageForGemini(newMessage) ?? newMessage
+      await chatDatabase.addMessage(sessionId, normalizedNewMessage)
       console.log(`💬 Stored ${newMessage.role} message for session ${sessionId}`);
       // Get current conversation history
       const messages = await chatDatabase.getMessages(sessionId);
@@ -181,12 +214,8 @@ export async function POST(request: NextRequest) {
           const recentMessages = getRecentMessages(messages);
           console.log(`🧠 Using ${recentMessages.length} out of ${messages.length} messages for AI context`);
           
-          // Convert all 'system' messages to 'model' before passing to agent
-          const agentMessages: ChatMessage[] = recentMessages.map((msg) =>
-            msg.role === 'system' ? { ...msg, role: 'model' } : msg
-          );
-          // Generate AI response using the chat history
-          aiResponse = await generateChatResponse(agentMessages);
+          const agentMessages: ChatMessage[] = normalizeConversation(recentMessages)
+          aiResponse = await generateChatResponse(agentMessages)
           // Extract AI response text from Gemini response format
           let aiResponseText = '';
           if (aiResponse.candidates?.[0]?.content?.parts?.[0]?.text) {
@@ -208,22 +237,22 @@ export async function POST(request: NextRequest) {
           await chatDatabase.addMessage(sessionId, aiMessage);
           console.log(`✅ Stored AI response for session ${sessionId}`);
           // Extract function calls if present
-          const functionCalls: any[] = [];
+          const functionCalls: any[] = []
           if (aiResponse.candidates) {
             aiResponse.candidates.forEach((candidate: any) => {
               if (candidate.content?.parts) {
                 candidate.content.parts.forEach((part: any) => {
                   if (part.functionCall) {
-                    functionCalls.push(part.functionCall);
+                    functionCalls.push(part.functionCall)
                   }
-                });
+                })
               }
               if (candidate.functionCalls) {
                 candidate.functionCalls.forEach((call: any) => {
-                  functionCalls.push(call);
-                });
+                  functionCalls.push(call)
+                })
               }
-            });
+            })
           }
           // Return response
           const response = {
