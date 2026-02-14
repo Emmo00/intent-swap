@@ -10,6 +10,8 @@ const publicClient = createPublicClient({
 export async function getTokenBalance(tokenAddress: string, userAddress: `0x${string}`) {
   if (!tokenAddress || !userAddress) return "0";
 
+  console.log(`🔍 Fetching balance for token: ${tokenAddress}, user: ${userAddress}`);
+
   try {
     // Handle ETH balance separately
     if (tokenAddress.toLowerCase() === zeroAddress) {

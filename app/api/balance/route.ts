@@ -40,12 +40,14 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    console.log(`🔍 Checking balance for token: ${token}, user: ${userAddress}`)
+    const resolvedToken = token?.toLowerCase() === 'eth' ? '0x0000000000000000000000000000000000000000' : token
+
+    console.log(`🔍 Checking balance for token: ${resolvedToken}, user: ${userAddress}`)
 
     // Get token balance
-    const balance = await getTokenBalance(token, userAddress as `0x${string}`)
+    const balance = await getTokenBalance(resolvedToken, userAddress as `0x${string}`)
 
-    console.log(`✅ Balance retrieved: ${balance} ${token}`)
+    console.log(`✅ Balance retrieved: ${balance} ${resolvedToken}`)
 
     return NextResponse.json({
       success: true,

@@ -299,6 +299,7 @@ export function ChatInterface({
               let tokenInfo = null;
               try {
                 tokenInfo = await searchTokenByNameOrSymbol(tokenToCheck);
+                console.log("🔍 Token info from OnchainKit:", tokenInfo);
               } catch (error) {
                 console.log("OnchainKit search failed, using fallback:", error);
 
@@ -317,7 +318,8 @@ export function ChatInterface({
               if (balanceResponse.ok) {
                 const balanceData = await balanceResponse.json();
                 console.log("balance response", balanceData);
-                result = `${balanceData.formattedBalance} ${tokenInfo?.symbol || token.symbol}`;
+                const displaySymbol = tokenInfo?.symbol || token_symbol || token || tokenToCheck;
+                result = `${balanceData.formattedBalance} ${displaySymbol}`;
               } else {
                 result = `Error checking balance: ${balanceResponse.statusText}`;
               }
@@ -568,51 +570,39 @@ export function ChatInterface({
         const hasFunctionCalls = apiResponse.functionCalls && apiResponse.functionCalls.length > 0;
 
         if (hasFunctionCalls && !hasContent) {
-          // Pure function call response - show function processing message
-          const functionMessage: Message = {
-            id: (Date.now() + 1).toString(),
-            content: "", // No content, just function calls
+          const balanceOnly = apiResponse.functionCalls.every(
+            (fc: any) => fc.name === "check_balance" || fc.name === "get_balance"
+          );
+
+          // Run function calls silently and only show the LLM follow-up
+          const functionResults = await handleFunctionCalls(apiResponse.functionCalls);
+          const resultsMessage = functionResults.map((r) => `${r.name}: ${r.result}`).join("\n");
+
+          const followupResponse = await callChatAPI(resultsMessage, "system");
+
+          const followupContent =
+            followupResponse.success &&
+            followupResponse.aiResponse &&
+            followupResponse.aiResponse.content &&
+            !followupResponse.aiResponse.content.includes("promptTokensDetails")
+              ? followupResponse.aiResponse.content
+              : "";
+
+          const finalContent = followupContent && followupContent.trim().length > 0
+            ? followupContent
+            : resultsMessage;
+
+          const followupMessage: Message = {
+            id: (Date.now() + 2).toString(),
+            content: finalContent,
             sender: "ai",
             timestamp: new Date(),
-            functionCalls: apiResponse.functionCalls,
-            isProcessing: true,
           };
 
-          // Replace typing indicator with function processing message
+          // Replace typing indicator with a single follow-up message (no function UI)
           setMessages((prev) =>
-            prev.map((msg) => (msg.id.startsWith("typing_") ? functionMessage : msg))
+            prev.map((msg) => (msg.id.startsWith("typing_") ? followupMessage : msg))
           );
-
-          // Execute function calls
-          const functionResults = await handleFunctionCalls(apiResponse.functionCalls);
-
-          // Update message to show completion
-          setMessages((prev) =>
-            prev.map((msg) =>
-              msg.id === functionMessage.id ? { ...msg, isProcessing: false, functionResults } : msg
-            )
-          );
-
-          // Send function results back to agent as system message
-          const resultsMessage = functionResults.map((r) => `${r.name}: ${r.result}`).join("\n");
-          {
-            const followupResponse = await callChatAPI(resultsMessage, "system");
-
-            if (
-              followupResponse.success &&
-              followupResponse.aiResponse &&
-              followupResponse.aiResponse.content &&
-              !followupResponse.aiResponse.content.includes("promptTokensDetails")
-            ) {
-              const followupMessage: Message = {
-                id: (Date.now() + 2).toString(),
-                content: followupResponse.aiResponse.content,
-                sender: "ai",
-                timestamp: new Date(),
-              };
-              setMessages((prev) => [...prev, followupMessage]);
-            }
-          }
         } else {
           // Regular message with content (and possibly function calls)
           const aiMessage: Message = {
@@ -620,7 +610,7 @@ export function ChatInterface({
             content: hasContent ? apiResponse.aiResponse.content : "I'm processing your request...",
             sender: "ai",
             timestamp: new Date(),
-            functionCalls: apiResponse.functionCalls || [],
+            functionCalls: hasFunctionCalls ? apiResponse.functionCalls : [],
             isProcessing: hasFunctionCalls,
           };
 
@@ -827,7 +817,7 @@ export function ChatInterface({
                 isConnected ? "Type swap instruction..." : "Connect wallet to start swapping..."
               }
               disabled={!isConnected || isLoading}
-              className="brutalist-border bg-input text-foreground font-mono pr-12 text-sm"
+              className="brutalist-border bg-input opacity-50 text-foreground font-mono pr-12 text-sm"
             />
             <div className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground font-black">
               ENTER
