@@ -4,15 +4,12 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { ChatInterface } from "@/components/chat-interface";
 import { ChatHistory } from "@/components/chat-history";
-import { ActivePermissionsSidebar } from "@/components/active-swaps-sidebar";
 import ConnectWalletButton from "@/components/connect-wallet-button";
-import { X, MessageSquare, Activity } from "lucide-react";
+import { X, MessageSquare } from "lucide-react";
 import { useAccount } from "wagmi";
 
 export default function Page() {
   const [leftSidebarOpen, setLeftSidebarOpen] = useState(false);
-  const [rightSidebarOpen, setRightSidebarOpen] = useState(false);
-  const [leftSidebarContent, setLeftSidebarContent] = useState<"chat" | "permissions">("chat");
   const [currentSessionId, setCurrentSessionId] = useState<string>();
   const { isConnected, address } = useAccount();
 
@@ -48,31 +45,17 @@ export default function Page() {
       {/* Top Header */}
       <header className="brutalist-border border-b-4 p-3 md:p-4 flex items-center justify-between">
         <div className="flex items-center gap-2 md:gap-4">
-          {/* Mobile menu buttons */}
+          {/* Mobile menu button */}
           <div className="flex items-center gap-1 md:hidden">
             <Button
               variant="ghost"
               size="sm"
               className="p-1"
               onClick={() => {
-                setLeftSidebarContent("chat");
                 setLeftSidebarOpen(!leftSidebarOpen);
-                setRightSidebarOpen(false);
               }}
             >
               <MessageSquare className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="p-1"
-              onClick={() => {
-                setLeftSidebarContent("permissions");
-                setLeftSidebarOpen(!leftSidebarOpen);
-                setRightSidebarOpen(false);
-              }}
-            >
-              <Activity className="h-4 w-4" />
             </Button>
           </div>
 
@@ -99,9 +82,7 @@ export default function Page() {
           } md:hidden transition-transform duration-300 absolute z-10 h-full w-80 brutalist-border border-r-4 bg-card flex flex-col`}
         >
           <div className="flex-shrink-0 flex items-center justify-between p-3 brutalist-border border-b-4">
-            <div className="text-sm font-black">
-              {leftSidebarContent === "chat" ? "CHAT_HISTORY" : "ACTIVE_PERMISSIONS"}
-            </div>
+            <div className="text-sm font-black">CHAT_HISTORY</div>
             <Button
               variant="ghost"
               size="sm"
@@ -112,17 +93,7 @@ export default function Page() {
             </Button>
           </div>
           <div className="flex-1 min-h-0">
-            {leftSidebarContent === "chat" ? (
-              <ChatHistory
-                onSelectSession={handleSessionSelect}
-                currentSessionId={currentSessionId}
-              />
-            ) : (
-              <ActivePermissionsSidebar
-                userAddress={address || ""}
-                onClose={() => setLeftSidebarOpen(false)}
-              />
-            )}
+            <ChatHistory onSelectSession={handleSessionSelect} currentSessionId={currentSessionId} />
           </div>
         </div>
 
@@ -135,9 +106,11 @@ export default function Page() {
         )}
 
         {/* Main Chat Area */}
-        <div className="flex-1 flex flex-col min-w-0">
+        <div className="flex-1 flex flex-col min-w-0 items-center">
           {isConnected ? (
-            <ChatInterface sessionId={currentSessionId} onSessionChange={setCurrentSessionId} />
+            <div className="w-full max-w-5xl h-full flex flex-col">
+              <ChatInterface sessionId={currentSessionId} onSessionChange={setCurrentSessionId} />
+            </div>
           ) : (
             <div className="flex-1 flex flex-col items-center justify-center p-8 space-y-6">
               <div className="text-center space-y-4">
@@ -151,12 +124,6 @@ export default function Page() {
           )}
         </div>
 
-        {/* Right Sidebar - Active Swaps (Desktop) */}
-        <div className="hidden md:block w-80 brutalist-border border-l-4 bg-card">
-          <ActivePermissionsSidebar
-            userAddress={address || ""}
-          />
-        </div>
       </div>
     </div>
   );
