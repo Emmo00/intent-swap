@@ -1,69 +1,79 @@
 # IntentSwap 🌀
 
 Swap tokens on Base with natural language.
-Powered by **SpendPermissions** (Base Account SDK), **CDP Server Wallets**, and **CoW Protocol**.
+Powered by **Google Gemini AI**, **0x API**, and **RainbowKit**.
 
 ---
 
 ## 🚀 What is IntentSwap?
 
 IntentSwap is an **AI-driven swap agent** that lets you type what you want in plain English —
-like *“swap 0.2 ETH for USDC”* — and have it executed onchain.
+like *"swap 0.2 WETH for USDC"* — and have it executed onchain.
 
-* Users **grant SpendPermissions** once to a server wallet.
-* The server wallet uses this delegated permission to execute swaps on your behalf.
-* Swaps are executed atomically through **CoW Protocol Settlement Contracts**.
-* You always retain custody: funds never leave your wallet except when the swap is executed.
+* Chat with the AI agent to specify your swap.
+* **You sign every transaction** directly in your wallet (no delegations).
+* Swaps execute through **0x Permit2** for best prices & MEV protection.
+* See **live step-by-step feedback** as your swap progresses.
+* Track complete **swap history** with BaseScan links.
 
 ---
 
 ## 🖼️ App Flow
 
 1. **Landing Page** → Bold neo-brutalist UI with a call-to-action to *Start Swapping*.
-2. **Chat UI** → Type intents in plain language.
-3. **AI Parsing** → LLM converts text into structured swap parameters.
-4. **Permission Grant** → App asks you to sign a SpendPermission (EIP-712).
-5. **Execution** → CDP server wallet submits the swap to CoW on your behalf.
-6. **Receipts & Active Swaps** → Sidebar shows swaps you’ve authorized, with status and links to Basescan.
+2. **Connect Wallet** → RainbowKit modal for any Base-compatible wallet.
+3. **Chat UI** → Type swap intents in plain language to the AI agent.
+4. **AI Parsing** → Gemini AI converts text into structured swap parameters.
+5. **Price Quote** → App fetches live pricing from 0x API and shows you the details.
+6. **Confirm & Execute** → You sign:
+   - **Approve Permit2** (if first time swapping a token)
+   - **Permit2 EIP-712 signature** (authorizing the swap router)
+   - **Swap transaction** (executes on Base)
+7. **Live Status** → Watch each step execute in real-time in the chat.
+8. **History Sidebar** → All your completed swaps with amounts, tx hashes, and explorer links.
 
 ---
 
 ## 🔑 Features
 
-* Natural language → structured swap intents.
-* **SpendPermissions** to securely delegate swap execution.
-* **CDP server wallet** pays gas, executes transactions.
-* **Receipts view** with transaction hashes and status.
-* Neo-brutalist UI design with chat-based swapping.
+* **Natural language swap intents** → AI understands "swap 5 USDC for DEGEN".
+* **You control every transaction** → no delegated permissions, you sign each step.
+* **Live step tracking** → see approvals, signatures, and confirmations in real-time.
+* **Full transparency** → transaction history with BaseScan links.
+* **Base-only** → optimized for Base network with low fees.
+* **Neo-brutalist UI** → chat-based interface with bold design.
 
 ---
 
 ## 🛠️ Tech Stack
 
-* **Frontend:** Next.js, React, TailwindCSS
-* **Backend:** Node.js (Express)
-* **AI:** OpenAI (or any LLM) for intent parsing
-* **Onchain:** Base Account SDK, CoW Protocol Settlement
-* **Wallets:** CDP Server Wallets
+* **Frontend:** Next.js 16, React 19, TailwindCSS
+* **Wallet:** RainbowKit 2.2, wagmi 2.18, viem 2.38
+* **AI:** Google Gemini 2.5 Flash for intent parsing
+* **Swaps:** 0x API (Permit2 endpoints)
+* **Database:** MongoDB (chat sessions, swap history)
+* **Chain:** Base Mainnet only
 
 ## 📜 Architecture Overview
 
 ```text
-User → Sign SpendPermission → Server
-User → Type swap intent → AI parses
-Server → Validate permission + intent
-Server → Submit CoW swap via CDP wallet
-CoW Settlement → Executes trade → Returns tokens to user
-Server → Logs tx → Frontend shows receipt
+User → Connect wallet (RainbowKit)
+User → Chat swap intent → Gemini AI parses
+Frontend → Fetch quote from 0x API
+Frontend → User approves Permit2 (if needed) → tx on Base
+Frontend → User signs Permit2 EIP-712 message
+Frontend → User signs & sends swap tx → executed on Base via 0x router
+Frontend → Waits for confirmation → saves to history → shows success
 ```
 
 ---
 
 ## 🔒 Security Notes
 
-* SpendPermissions are **revocable** — user can revoke anytime.
-* Funds stay in the user’s account until execution.
-* Server wallet never directly holds user funds.
+* **You sign every transaction** — no server-side custody or delegations.
+* **Permit2 is a standard** — widely used across DeFi for secure token approvals.
+* **Gas required** — you need some ETH on Base to pay for transactions.
+* **Transaction history is private** — only you can see your swap record.
 
 ---
 

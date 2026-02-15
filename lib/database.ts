@@ -17,6 +17,38 @@ const ChatMessageSchema = new Schema({
   }
 }, { _id: false })
 
+// ---------- Swap Transaction ----------
+
+export interface ISwapTransaction extends Document {
+  userId: string
+  txHash: string
+  sellToken: string
+  sellSymbol: string
+  sellAmount: string
+  buyToken: string
+  buySymbol: string
+  buyAmount: string
+  status: 'confirmed' | 'reverted' | 'pending'
+  createdAt: Date
+}
+
+const SwapTransactionSchema = new Schema<ISwapTransaction>({
+  userId: { type: String, required: true, index: true },
+  txHash: { type: String, required: true, unique: true },
+  sellToken: { type: String, required: true },
+  sellSymbol: { type: String, required: true },
+  sellAmount: { type: String, required: true },
+  buyToken: { type: String, required: true },
+  buySymbol: { type: String, required: true },
+  buyAmount: { type: String, required: true },
+  status: { type: String, enum: ['confirmed', 'reverted', 'pending'], default: 'confirmed' },
+  createdAt: { type: Date, default: Date.now },
+})
+
+const SwapTransaction: Model<ISwapTransaction> =
+  mongoose.models.SwapTransaction ||
+  mongoose.model<ISwapTransaction>('SwapTransaction', SwapTransactionSchema)
+
 // Define the ChatSession interface extending Mongoose Document
 export interface IChatSession extends Document {
   sessionId: string
@@ -245,5 +277,46 @@ export class ChatDatabase {
 // Export singleton instance
 export const chatDatabase = new ChatDatabase()
 
-// Export the model for advanced usage
-export { ChatSession }
+// ---------- Swap Transaction Database ----------
+
+export class SwapTransactionDatabase {
+  constructor() {
+    if (!isConnected) {
+      connectToDatabase()
+    }
+  }
+
+  async create(data: {
+    userId: string
+    txHash: string
+    sellToken: string
+    sellSymbol: string
+    sellAmount: string
+    buyToken: string
+    buySymbol: string
+    buyAmount: string
+    status?: string
+  }): Promise<ISwapTransaction> {
+    await connectToDatabase()
+    const tx = new SwapTransaction(data)
+    return tx.save()
+  }
+
+  async getByUser(userId: string, limit = 50): Promise<ISwapTransaction[]> {
+    await connectToDatabase()
+    return SwapTransaction.find({ userId })
+      .sort({ createdAt: -1 })
+      .limit(limit)
+      .exec()
+  }
+
+  async getByHash(txHash: string): Promise<ISwapTransaction | null> {
+    await connectToDatabase()
+    return SwapTransaction.findOne({ txHash }).exec()
+  }
+}
+
+export const swapTransactionDatabase = new SwapTransactionDatabase()
+
+// Export models for advanced usage
+export { ChatSession, SwapTransaction }

@@ -7,10 +7,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
-import { useAccount, useChainId, useSwitchChain, useWalletClient } from "wagmi";
+import { useAccount, useChainId, useSwitchChain, useWalletClient, usePublicClient } from "wagmi";
 import { searchTokenByNameOrSymbol } from "@/lib/token-search";
 import { base } from "viem/chains";
-import { concat, formatUnits, numberToHex, size } from "viem";
+import { concat, encodeFunctionData, erc20Abi, formatUnits, maxUint256, numberToHex, size } from "viem";
+
+const PERMIT2_ADDRESS = "0x000000000022D473030F116dDEE9F6B43aC78BA3" as const;
 
 interface Message {
   id: string;
@@ -153,6 +155,7 @@ export function ChatInterface({
   const chainId = useChainId();
   const { switchChainAsync } = useSwitchChain();
   const { data: walletClient } = useWalletClient();
+  const publicClient = usePublicClient();
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
@@ -274,6 +277,19 @@ export function ChatInterface({
     onSessionChange?.(newSessionId);
   };
 
+  // Helper to push a step-status message into the chat
+  const addStepMessage = useCallback((content: string, id?: string) => {
+    const msg: Message = {
+      id: id || `step_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+      content,
+      sender: "ai",
+      timestamp: new Date(),
+    };
+    setMessages((prev) => [...prev, msg]);
+    setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
+    return msg.id;
+  }, []);
+
   // Real function call handler with API integration
   const handleFunctionCalls = useCallback(async (functionCalls: any[]) => {
     console.log("🔧 Handling function calls:", functionCalls);
@@ -387,9 +403,10 @@ export function ChatInterface({
               const parsedArgs = typeof args === "string" ? JSON.parse(args) : args;
               const { sell_token, buy_token, sell_amount } = parsedArgs;
 
-              let sellTokenInfo, buyTokenInfo;
+              // --- Step 1: Resolve tokens ---
+              addStepMessage(`🔍 STEP 1/5 — Resolving token addresses for ${sell_token} and ${buy_token}...`);
 
-              // get contract addresses for sell and buy tokens
+              let sellTokenInfo, buyTokenInfo;
               try {
                 sellTokenInfo = await searchTokenByNameOrSymbol(sell_token);
                 buyTokenInfo = await searchTokenByNameOrSymbol(buy_token);
@@ -397,23 +414,22 @@ export function ChatInterface({
                 console.error("Token info retrieval error:", error);
                 throw new Error(`Could not retrieve token info: ${sell_token}, ${buy_token}`);
               }
-
-              if (!sellTokenInfo) {
-                throw new Error(`Sell token not found: ${sell_token}`);
-              }
-              if (!buyTokenInfo) {
-                throw new Error(`Buy token not found: ${buy_token}`);
-              }
+              if (!sellTokenInfo) throw new Error(`Sell token not found: ${sell_token}`);
+              if (!buyTokenInfo) throw new Error(`Buy token not found: ${buy_token}`);
 
               if (!walletClient || !address) {
                 throw new Error("Connect a wallet before swapping");
+              }
+              if (!publicClient) {
+                throw new Error("Public client not available");
               }
 
               if (chainId !== base.id && switchChainAsync) {
                 await switchChainAsync({ chainId: base.id });
               }
 
-              console.log(`📊 Fetching quote for ${sell_token} → ${buy_token}`);
+              // --- Step 2: Fetch quote ---
+              addStepMessage(`📊 STEP 2/5 — Fetching swap quote from 0x...`);
 
               const quoteResponse = await fetch("/api/swap/quote", {
                 method: "POST",
@@ -432,51 +448,114 @@ export function ChatInterface({
               }
 
               const quoteData = await quoteResponse.json();
-
               let txData = quoteData?.transaction?.data as `0x${string}`;
               if (!txData || !quoteData?.transaction?.to) {
                 throw new Error("Quote missing transaction data");
               }
 
-              if (quoteData?.permit2?.eip712) {
-                const signature = (await walletClient.signTypedData(quoteData.permit2.eip712)) as `0x${string}`;
-                txData = appendPermitSignature(txData, signature);
+              // Show quote summary
+              const sellDec = sellTokenInfo.decimals ?? 18;
+              const buyDec = buyTokenInfo.decimals ?? 18;
+              const sellDisplay = formatUnits(BigInt(quoteData.sellAmount), sellDec);
+              const buyDisplay = formatUnits(BigInt(quoteData.buyAmount), buyDec);
+              addStepMessage(`💰 Quote: ${sellDisplay} ${sellTokenInfo.symbol} → ${buyDisplay} ${buyTokenInfo.symbol}`);
+
+              // --- Step 3: Approve Permit2 (if needed for ERC-20) ---
+              const needsApproval = quoteData.issues?.allowance && BigInt(quoteData.issues.allowance.actual) < BigInt(quoteData.sellAmount);
+              if (needsApproval) {
+                addStepMessage(`✋ STEP 3/5 — Approve Permit2 to spend ${sellTokenInfo.symbol}. Please confirm in your wallet...`);
+
+                const approveData = encodeFunctionData({
+                  abi: erc20Abi,
+                  functionName: "approve",
+                  args: [PERMIT2_ADDRESS, maxUint256],
+                });
+
+                const approveHash = await walletClient.sendTransaction({
+                  to: sellTokenInfo.address as `0x${string}`,
+                  data: approveData,
+                  chain: base,
+                });
+
+                addStepMessage(`⏳ Waiting for approval confirmation...`);
+                const approveReceipt = await publicClient.waitForTransactionReceipt({ hash: approveHash });
+                if (approveReceipt.status === "reverted") {
+                  throw new Error("Approval transaction reverted");
+                }
+                addStepMessage(`✅ Permit2 approved!`);
+              } else {
+                addStepMessage(`✅ STEP 3/5 — Permit2 allowance OK, skipping approval.`);
               }
 
-              const signedTx = await walletClient.signTransaction({
-                account: walletClient.account!,
-                chain: base,
+              // --- Step 4: Sign Permit2 typed data (if present) ---
+              if (quoteData?.permit2?.eip712) {
+                addStepMessage(`✍️ STEP 4/5 — Sign the Permit2 message in your wallet...`);
+                const signature = (await walletClient.signTypedData(quoteData.permit2.eip712)) as `0x${string}`;
+                txData = appendPermitSignature(txData, signature);
+                addStepMessage(`✅ Permit2 signature obtained!`);
+              } else {
+                addStepMessage(`✅ STEP 4/5 — No Permit2 signature needed.`);
+              }
+
+              // --- Step 5: Send swap transaction ---
+              addStepMessage(`🔄 STEP 5/5 — Confirm the swap transaction in your wallet...`);
+
+              const swapHash = await walletClient.sendTransaction({
                 to: quoteData.transaction.to as `0x${string}`,
                 data: txData,
                 value: quoteData.transaction.value ? BigInt(quoteData.transaction.value) : BigInt(0),
                 gas: quoteData.transaction.gas ? BigInt(quoteData.transaction.gas) : undefined,
-                gasPrice: quoteData.transaction.gasPrice ? BigInt(quoteData.transaction.gasPrice) : undefined,
+                chain: base,
               });
 
-              const executeResponse = await fetch("/api/swap/execute", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ signedTransaction: signedTx }),
-              });
+              addStepMessage(`⏳ Transaction submitted! Waiting for confirmation...\nTx: ${swapHash}`);
 
-              if (!executeResponse.ok) {
-                const errorBody = await executeResponse.text();
-                throw new Error(`Swap submission failed: ${executeResponse.statusText} ${errorBody}`);
+              const receipt = await publicClient.waitForTransactionReceipt({ hash: swapHash });
+              if (receipt.status === "reverted") {
+                throw new Error(`Swap transaction reverted. Tx: ${swapHash}`);
               }
 
-              const execution = await executeResponse.json();
+              // Build a structured result string for the AI agent
+              const sellDec2 = sellTokenInfo.decimals ?? 18;
+              const buyDec2 = buyTokenInfo.decimals ?? 18;
+              const soldDisplay = formatUnits(BigInt(quoteData.sellAmount), sellDec2);
+              const boughtDisplay = formatUnits(BigInt(quoteData.buyAmount), buyDec2);
+              const explorerUrl = `https://basescan.org/tx/${receipt.transactionHash}`;
 
-              result = await formatExecuteSuccessfulData(
-                execution.receipt,
-                quoteData,
-                buyTokenInfo,
-                sellTokenInfo
-              );
-            } catch (error) {
-              console.error("Quote error:", error);
-              result = `Error getting quote: ${
-                error instanceof Error ? error.message : "Unknown error"
-              }`;
+              result = [
+                `Swap confirmed on-chain!`,
+                `Transaction hash: ${receipt.transactionHash}`,
+                `Sold: ${soldDisplay} ${sellTokenInfo.symbol}`,
+                `Bought: ${boughtDisplay} ${buyTokenInfo.symbol}`,
+                `Explorer: ${explorerUrl}`,
+              ].join("\n");
+
+              // Save transaction to history (fire-and-forget) + refresh sidebar
+              fetch("/api/swap/history", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  txHash: receipt.transactionHash,
+                  sellToken: sellTokenInfo.address,
+                  sellSymbol: sellTokenInfo.symbol,
+                  sellAmount: soldDisplay,
+                  buyToken: buyTokenInfo.address,
+                  buySymbol: buyTokenInfo.symbol,
+                  buyAmount: boughtDisplay,
+                  status: "confirmed",
+                }),
+              })
+                .then(() => window.dispatchEvent(new Event("swap-completed")))
+                .catch((e) => console.warn("Failed to save swap history:", e));
+            } catch (error: any) {
+              console.error("Swap execution error:", error);
+              // If user rejected in wallet, show a friendlier message
+              const msg = error?.message || "Unknown error";
+              if (msg.includes("User rejected") || msg.includes("user rejected") || msg.includes("denied")) {
+                result = `❌ Transaction cancelled — you rejected the request in your wallet.`;
+              } else {
+                result = `❌ Swap failed: ${msg}`;
+              }
             }
             break;
 
@@ -503,7 +582,7 @@ export function ChatInterface({
     // Small delay for UX
     await new Promise((resolve) => setTimeout(resolve, 800));
     return results;
-  }, []);
+  }, [walletClient, address, chainId, switchChainAsync, publicClient, addStepMessage]);
 
   const callChatAPI = useCallback(
     async (message: string, role: "user" | "system" | "tool" = "user") => {
@@ -574,6 +653,10 @@ export function ChatInterface({
             (fc: any) => fc.name === "check_balance" || fc.name === "get_balance"
           );
 
+          // Remove typing indicator before running function calls
+          // (step messages from execute_swap push after it, so replace won't work)
+          setMessages((prev) => prev.filter((msg) => !msg.id.startsWith("typing_")));
+
           // Run function calls silently and only show the LLM follow-up
           const functionResults = await handleFunctionCalls(apiResponse.functionCalls);
           const resultsMessage = functionResults.map((r) => `${r.name}: ${r.result}`).join("\n");
@@ -601,10 +684,8 @@ export function ChatInterface({
             timestamp: new Date(),
           };
 
-          // Replace typing indicator with a single follow-up message (no function UI)
-          setMessages((prev) =>
-            prev.map((msg) => (msg.id.startsWith("typing_") ? followupMessage : msg))
-          );
+          // Append at the end so it appears after all step messages
+          setMessages((prev) => [...prev, followupMessage]);
         } else {
           // Regular message with content (and possibly function calls)
           const aiMessage: Message = {
@@ -661,8 +742,14 @@ export function ChatInterface({
         sender: "ai",
         timestamp: new Date(),
       };
-      // Replace typing indicator with error message
-      setMessages((prev) => prev.map((msg) => (msg.id.startsWith("typing_") ? errorMessage : msg)));
+      // Replace typing indicator with error message, or append if step messages pushed it up
+      setMessages((prev) => {
+        const hasTyping = prev.some((msg) => msg.id.startsWith("typing_"));
+        if (hasTyping) {
+          return prev.map((msg) => (msg.id.startsWith("typing_") ? errorMessage : msg));
+        }
+        return [...prev, errorMessage];
+      });
     } finally {
       setIsLoading(false);
     }

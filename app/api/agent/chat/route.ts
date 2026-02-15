@@ -353,13 +353,18 @@ export async function GET(request: NextRequest) {
       )
     }
 
+    // Filter out tool-result messages so users don't see internal function-call plumbing
+    const visibleMessages = session.messages.filter(
+      (msg: ChatMessage) => !msg.content.startsWith(TOOL_RESULT_PREFIX)
+    )
+
     return NextResponse.json({
       success: true,
       sessionId,
-      messages: session.messages,
+      messages: visibleMessages,
       createdAt: session.createdAt,
       updatedAt: session.updatedAt,
-      messageCount: session.messages.length
+      messageCount: visibleMessages.length
     })
 
   } catch (error) {

@@ -22,7 +22,7 @@ export default function Page() {
 
             {/* Subheading */}
             <p className="text-xl md:text-2xl font-mono max-w-3xl mx-auto text-balance text-muted-foreground">
-              Grant SpendPermissions once. Our AI agent executes swaps for you.
+              Chat with your wallet. Express your intent. Confirm in you wallet.
             </p>
           </div>
 
@@ -43,17 +43,17 @@ export default function Page() {
 
             <div className="brutalist-border brutalist-shadow bg-card p-8 space-y-4">
               <div className="text-4xl">⚡</div>
-              <h3 className="text-xl font-black">INSTANT EXECUTION</h3>
+              <h3 className="text-xl font-black">LIVE FEEDBACK</h3>
               <p className="font-mono text-sm text-muted-foreground">
-                Pre-approved permissions mean lightning-fast swaps without constant signing.
+                See each step in real-time as your swap executes on Base network.
               </p>
             </div>
 
             <div className="brutalist-border brutalist-shadow bg-card p-8 space-y-4">
-              <div className="text-4xl">🔒</div>
-              <h3 className="text-xl font-black">SECURE BY DESIGN</h3>
+              <div className="text-4xl">👁️</div>
+              <h3 className="text-xl font-black">FULL TRANSPARENCY</h3>
               <p className="font-mono text-sm text-muted-foreground">
-                Built on Base with SpendPermissions for maximum security and control.
+                You sign every transaction. Track complete swap history.
               </p>
             </div>
           </div>
